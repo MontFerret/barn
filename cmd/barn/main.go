@@ -1,0 +1,85 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+
+	"github.com/MontFerret/barn/internal/barn"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	if err := run(ctx, os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "barn:", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, arguments []string) error {
+	if len(arguments) == 0 {
+		return fmt.Errorf("usage: barn <validate|generate|verify|check-immutable> [options]")
+	}
+
+	command := arguments[0]
+	flags := flag.NewFlagSet(command, flag.ContinueOnError)
+	root := flags.String("root", ".", "registry repository root")
+	base := flags.String("base", "", "base Git object for immutability validation")
+
+	if err := flags.Parse(arguments[1:]); err != nil {
+		return err
+	}
+
+	if flags.NArg() != 0 {
+		return fmt.Errorf("unexpected arguments: %v", flags.Args())
+	}
+
+	if command == "check-immutable" {
+		if *base == "" {
+			return fmt.Errorf("check-immutable requires --base")
+		}
+
+		return barn.CheckImmutable(ctx, *root, *base)
+	}
+
+	if command != "validate" && command != "generate" && command != "verify" {
+		return fmt.Errorf("unknown command %q", command)
+	}
+
+	registry, err := barn.Validate(ctx, *root, barn.GitInspector{})
+	if err != nil {
+		return err
+	}
+
+	if command == "validate" {
+		return nil
+	}
+
+	moduleCatalog, err := barn.GenerateModuleCatalog(registry)
+	if err != nil {
+		return err
+	}
+
+	pluginCatalog, err := barn.GeneratePluginCatalog()
+	if err != nil {
+		return err
+	}
+
+	if command == "generate" {
+		if err := barn.WriteModuleCatalog(*root, moduleCatalog); err != nil {
+			return err
+		}
+
+		return barn.WritePluginCatalog(*root, pluginCatalog)
+	}
+
+	return errors.Join(
+		barn.VerifyModuleCatalog(*root, moduleCatalog),
+		barn.VerifyPluginCatalog(*root, pluginCatalog),
+	)
+}
