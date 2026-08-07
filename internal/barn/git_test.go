@@ -58,7 +58,7 @@ func TestGitInspectorValidatesPinnedGoModule(t *testing.T) {
 		wantError   string
 	}{
 		{
-			name:        "vanity path",
+			name:        "vanity path ignores repository and source directory",
 			version:     "1.2.0",
 			sourcePath:  "modules/archive",
 			goMod:       []byte("module modules.example.org/tools/archive\n\ngo 1.25.0\n"),
@@ -87,6 +87,12 @@ func TestGitInspectorValidatesPinnedGoModule(t *testing.T) {
 			version:   "1.2.0",
 			goMod:     []byte("go 1.25.0\n"),
 			wantError: "module directive is required",
+		},
+		{
+			name:      "invalid module path",
+			version:   "1.2.0",
+			goMod:     []byte("module archive\n\ngo 1.25.0\n"),
+			wantError: "malformed module path",
 		},
 		{
 			name:      "major version mismatch",
