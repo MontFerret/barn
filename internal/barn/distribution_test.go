@@ -26,7 +26,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	registryManifest := testRegistryManifest("montferret", "archive")
 	registryManifest.Source.Path = sourcePath
 	root := t.TempDir()
-	writeRegistryRecord(t, root, "montferret", "archive", registryManifest, testVersion("1.2.0", "archive/v1.2.0", fixture.commit))
+	writeRegistryRecord(t, root, "montferret", "archive", registryManifest, stampedTestVersion("1.2.0", "archive/v1.2.0", fixture.commit))
 
 	registry, err := Validate(context.Background(), root, GitInspector{Resolver: fixtureResolver(fixture.directory)})
 	if err != nil {
@@ -99,8 +99,9 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		t.Fatalf("unexpected module document: %#v", moduleDocument)
 	}
 	if !reflect.DeepEqual(moduleDocument.Versions, []ModuleDocumentVersion{{
-		Version: "1.2.0",
-		Href:    "/modules/montferret/archive/versions/1.2.0/index.json",
+		Version:     "1.2.0",
+		PublishedAt: testPublishedAt,
+		Href:        "/modules/montferret/archive/versions/1.2.0/index.json",
 	}}) {
 		t.Fatalf("unexpected module versions: %#v", moduleDocument.Versions)
 	}
@@ -477,6 +478,18 @@ func TestGenerateDistributionRequiresResolvedPackage(t *testing.T) {
 	}
 }
 
+func TestGenerateDistributionRequiresPublicationStamp(t *testing.T) {
+	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+	}})
+	module.Versions[0].Record.PublishedAt = nil
+
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	if err == nil || !strings.Contains(err.Error(), "has not been publication-stamped") {
+		t.Fatalf("expected missing publication timestamp error, got %v", err)
+	}
+}
+
 type distributionTestVersion struct {
 	version     string
 	namespace   string
@@ -494,7 +507,7 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 			manifest.Compatibility = &modulemanifest.Compatibility{Ferret: fixture.ferret}
 		}
 		versions = append(versions, &Version{
-			Record:        testVersion(fixture.version, "v"+fixture.version, testCommit[:39]+string(rune('0'+index))),
+			Record:        stampedTestVersion(fixture.version, "v"+fixture.version, testCommit[:39]+string(rune('0'+index))),
 			Manifest:      manifest,
 			PackagePath:   "example.org/fixtures/" + name,
 			Documentation: []byte("# " + fixture.version + "\n"),

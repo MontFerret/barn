@@ -470,6 +470,10 @@ func (client *Client) convertVersionEntries(parent *url.URL, entries []registryd
 		}
 
 		parsed[entry.Version] = value
+		_, offset := entry.PublishedAt.Zone()
+		if entry.PublishedAt.IsZero() || offset != 0 {
+			return nil, malformed(parent, "version %q publication timestamp is missing or is not UTC", entry.Version)
+		}
 
 		href, err := client.resolveLink(parent, entry.Href)
 		if err != nil {
@@ -477,7 +481,7 @@ func (client *Client) convertVersionEntries(parent *url.URL, entries []registryd
 		}
 
 		references = append(references, versionReference{
-			summary: VersionSummary{Version: entry.Version},
+			summary: VersionSummary{Version: entry.Version, PublishedAt: entry.PublishedAt},
 			href:    href,
 		})
 	}

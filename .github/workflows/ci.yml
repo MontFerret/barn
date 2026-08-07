@@ -5,6 +5,9 @@ on:
     branches:
       - main
   pull_request:
+  repository_dispatch:
+    types:
+      - publication-stamped
   workflow_dispatch:
 
 permissions:
@@ -18,12 +21,15 @@ jobs:
   validate:
     name: Validate registry
     runs-on: ubuntu-latest
+    outputs:
+      publication-ready: ${{ steps.publication.outputs.ready }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || github.sha }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -58,15 +64,34 @@ jobs:
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: make check-immutable BASE='${{ github.event.before }}'
 
+      - name: Check publication stamp transition
+        if: github.event_name == 'repository_dispatch'
+        run: make check-immutable BASE='${{ github.event.client_payload.base }}'
+
+      - name: Check publication completeness
+        id: publication
+        run: |
+          if make check-stamped; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stamp pull request preview
+        if: github.event_name == 'pull_request' && steps.publication.outputs.ready != 'true'
+        run: make stamp STAMP_TIMESTAMP='2000-01-01T00:00:00Z'
+
       - name: Generate distribution
+        if: github.event_name == 'pull_request' || steps.publication.outputs.ready == 'true'
         run: make generate
 
       - name: Verify deterministic distribution
+        if: github.event_name == 'pull_request' || steps.publication.outputs.ready == 'true'
         run: make verify
 
   deploy:
     name: Deploy distribution
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.validate.outputs.publication-ready == 'true'
     needs:
       - validate
     runs-on: ubuntu-latest

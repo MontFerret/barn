@@ -2,7 +2,10 @@
 // generated Ferret Registry distribution.
 package registrydist
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 const SchemaVersion = 1
 
@@ -62,8 +65,9 @@ type (
 	}
 
 	ModuleDocumentVersion struct {
-		Version string `json:"version"`
-		Href    string `json:"href"`
+		Version     string    `json:"version"`
+		PublishedAt time.Time `json:"publishedAt"`
+		Href        string    `json:"href"`
 	}
 
 	VersionDocument struct {

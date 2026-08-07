@@ -60,6 +60,9 @@ func TestPrepareNewModuleDeterministicAndBarnCompatible(t *testing.T) {
 	if _, err := registryspec.ParseVersionRecord(first.Files[1].Content); err != nil {
 		t.Fatalf("prepared version record is invalid: %v", err)
 	}
+	if first.Version.PublishedAt != nil || strings.Contains(string(first.Files[1].Content), "publishedAt") {
+		t.Fatalf("prepared submission was publication-stamped: %s", first.Files[1].Content)
+	}
 
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "registry", "plugins"), 0o755); err != nil {

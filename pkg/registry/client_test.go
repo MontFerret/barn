@@ -42,7 +42,11 @@ func TestClientReadsAndSearchesStaticDistribution(t *testing.T) {
 	if module.ID != "montferret/archive" || module.Owner != "montferret" || module.Name != "archive" || module.Description != "Archive support." || module.Latest != "1.0.0" {
 		t.Fatalf("unexpected module: %#v", module)
 	}
-	wantVersions := []VersionSummary{{Version: "1.0.0"}, {Version: "0.9.0"}}
+	wantPublishedAt := time.Date(2026, time.August, 7, 21, 54, 12, 0, time.UTC)
+	wantVersions := []VersionSummary{
+		{Version: "1.0.0", PublishedAt: wantPublishedAt},
+		{Version: "0.9.0", PublishedAt: wantPublishedAt},
+	}
 	if !reflect.DeepEqual(module.Versions, wantVersions) {
 		t.Fatalf("unexpected module versions: %#v", module.Versions)
 	}
@@ -239,7 +243,7 @@ func TestClientSearchBoundsConcurrentDescriptionRequests(t *testing.T) {
   "owner": "acme",
   "name": %q,
   "description": "Needle support.",
-  "versions": [{"version":"1.0.0","href":"./1.0.0.json"}]
+  "versions": [{"version":"1.0.0","publishedAt":"2026-08-07T21:54:12Z","href":"./1.0.0.json"}]
 }`, id, fmt.Sprintf("module-%02d", index))
 	}
 
@@ -421,6 +425,38 @@ func TestClientRejectsMalformedAndUnsupportedArtifacts(t *testing.T) {
 	}
 }
 
+func TestClientRejectsInvalidPublicationTimestamps(t *testing.T) {
+	for name, entry := range map[string]string{
+		"missing":   `{"version":"1.0.0","href":"/version.json"}`,
+		"malformed": `{"version":"1.0.0","publishedAt":"not-a-time","href":"/version.json"}`,
+		"non-UTC":   `{"version":"1.0.0","publishedAt":"2026-08-07T17:54:12-04:00","href":"/version.json"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				switch request.URL.Path {
+				case "/index.json":
+					_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"modules":"/modules.json"}}`))
+				case "/modules.json":
+					_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"acme/module","href":"/module.json"}]}`))
+				case "/module.json":
+					_, _ = fmt.Fprintf(response, `{"schemaVersion":1,"id":"acme/module","owner":"acme","name":"module","description":"Module.","versions":[%s]}`, entry)
+				default:
+					http.NotFound(response, request)
+				}
+			}))
+			defer server.Close()
+
+			client, err := NewClient(WithBaseURL(server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := client.Module(context.Background(), "acme/module"); !errors.Is(err, ErrMalformedArtifact) {
+				t.Fatalf("expected malformed publication timestamp, got %v", err)
+			}
+		})
+	}
+}
+
 func TestClientHTTPTransportAndCancellationErrors(t *testing.T) {
 	t.Run("HTTP status", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -521,8 +557,8 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
   "description": "Archive support.",
   "latest": "1.0.0",
   "versions": [
-    {"version":"0.9.0","href":"./releases/0.9.0/index.json"},
-    {"version":"1.0.0","href":"./releases/1.0.0/index.json"}
+    {"version":"0.9.0","publishedAt":"2026-08-07T21:54:12Z","href":"./releases/0.9.0/index.json"},
+    {"version":"1.0.0","publishedAt":"2026-08-07T21:54:12Z","href":"./releases/1.0.0/index.json"}
   ]
 }`,
 		prefix + "/records/browser.json": `{
@@ -532,7 +568,7 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
   "name": "browser",
   "description": "Text generation under AI::LLM with browser support.",
   "versions": [
-    {"version":"1.0.0-rc.1","href":"./releases/1.0.0-rc.1/index.json"}
+    {"version":"1.0.0-rc.1","publishedAt":"2026-08-07T21:54:12Z","href":"./releases/1.0.0-rc.1/index.json"}
   ]
 }`,
 		prefix + "/records/releases/1.0.0/index.json": fmt.Sprintf(`{
@@ -611,7 +647,7 @@ func newSingleModuleSearchServer(t *testing.T, detail http.HandlerFunc) *httptes
   "owner": "acme",
   "name": "browser",
   "description": "Needle support.",
-  "versions": [{"version":"1.0.0","href":"/browser/1.0.0.json"}]
+  "versions": [{"version":"1.0.0","publishedAt":"2026-08-07T21:54:12Z","href":"/browser/1.0.0.json"}]
 }`))
 		default:
 			http.NotFound(response, request)

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
@@ -20,6 +21,8 @@ const (
 	testDocumentation = "# Fixture documentation\n"
 	testPackagePath   = "example.org/fixtures/archive"
 )
+
+var testPublishedAt = time.Date(2026, time.August, 7, 21, 54, 12, 0, time.UTC)
 
 func writeRegistryRecord(t *testing.T, root, ownerDirectory, moduleDirectory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
 	t.Helper()
@@ -84,6 +87,14 @@ func testVersion(version, tag, commit string) *registryspec.VersionRecord {
 		Tag:     tag,
 		Commit:  commit,
 	}
+}
+
+func stampedTestVersion(version, tag, commit string) *registryspec.VersionRecord {
+	record := testVersion(version, tag, commit)
+	publishedAt := testPublishedAt
+	record.PublishedAt = &publishedAt
+
+	return record
 }
 
 func testModuleManifest(name, namespace, version, description string) *modulemanifest.Manifest {

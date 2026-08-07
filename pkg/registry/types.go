@@ -2,6 +2,8 @@
 // Ferret Registry distribution.
 package registry
 
+import "time"
+
 const DefaultBaseURL = "https://registry.ferretlang.org"
 
 type (
@@ -21,9 +23,10 @@ type (
 		Versions    []VersionSummary
 	}
 
-	// VersionSummary identifies an available module version.
+	// VersionSummary identifies an available module version and when Barn first published it.
 	VersionSummary struct {
-		Version string
+		Version     string
+		PublishedAt time.Time
 	}
 
 	// Version contains the immutable public metadata for one module version.

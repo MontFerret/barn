@@ -173,6 +173,10 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			return moduleProjection{}, fmt.Errorf("module %s@%s package has not been resolved", registryModule.ID(), version.Record.Version)
 		}
 
+		if version.Record.PublishedAt == nil {
+			return moduleProjection{}, fmt.Errorf("module %s@%s has not been publication-stamped", registryModule.ID(), version.Record.Version)
+		}
+
 		if err := validateCategoryIDs(registryModule.ID(), version.Record.Version, version.Manifest.Categories); err != nil {
 			return moduleProjection{}, err
 		}
@@ -204,8 +208,9 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 	for _, version := range versions {
 		versionPath := path.Join(modulePath, "versions", version.Record.Version)
 		document.Versions = append(document.Versions, ModuleDocumentVersion{
-			Version: version.Record.Version,
-			Href:    "/" + path.Join(versionPath, "index.json"),
+			Version:     version.Record.Version,
+			PublishedAt: *version.Record.PublishedAt,
+			Href:        "/" + path.Join(versionPath, "index.json"),
 		})
 
 		ferret := ""

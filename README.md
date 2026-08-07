@@ -68,6 +68,12 @@ monorepo source path. The installable package path comes from the adjacent
 `go.mod` module directive. Barn parses and validates that directive against the
 published version; it never derives a package path from the repository URL.
 
+After an unstamped version record reaches `main`, Barn assigns `publishedAt`
+once and commits it back to the canonical record. The value is a whole-second
+UTC RFC3339 timestamp and is immutable after assignment. Generated module
+documents propagate that stored value into each version summary; regeneration
+never derives it again or consults Git history.
+
 For every registered version, Barn also reads `README.md` from the module root
 at the exact pinned commit. It publishes those bytes as version-scoped
 `docs.md` and publishes a sanitized, browser-ready `docs.html` fragment with
@@ -85,7 +91,8 @@ Barn exposes two reusable packages for CLIs and other Go tooling:
 - `github.com/MontFerret/barn/pkg/registry` consumes the generated static
   distribution. It discovers artifact links from the root index, so callers do
   not construct paths inside `dist/`. Version records expose the validated
-  package path as `Version.Package.Path` and absolute content artifact URLs.
+  package path as `Version.Package.Path` and absolute content artifact URLs;
+  version summaries expose their immutable `PublishedAt` time.
 - `github.com/MontFerret/barn/pkg/publish` validates a tagged module release and
   prepares the Barn source records for a Git pull request. It does not write the
   records, upload a package, or call a Git hosting API.
@@ -200,6 +207,9 @@ The version record pins the release tag to its exact commit:
 }
 ```
 
+Do not add `publishedAt` to a publication pull request. Barn adds it after the
+version first enters the registry; contributor-supplied timestamps are rejected.
+
 Name the file `v<version>.json`; the filename above is therefore
 `v1.2.3.json`, while the JSON `version` value is `1.2.3`. Replace the example
 tag and commit with the published release's exact values. Tags may be
@@ -222,10 +232,11 @@ edit, or commit anything under `dist/`, and do not add entries under
 CI validates the registry, verifies that each tag resolves to its pinned
 commit, checks the `ferret.yaml` identity and version, snapshots `README.md`,
 and generates and verifies the complete `dist/` hierarchy. Pull-request output
-is discarded; after a change lands on `main`, CI regenerates and deploys the
-whole distribution at the GitHub Pages site root. Published module sources and
-version records are immutable: after they are merged, they cannot be changed
-or deleted by a later pull request.
+is discarded. After a version reaches `main`, the publication workflow stamps
+its canonical record and dispatches CI for the resulting commit; only a fully
+stamped registry is deployed to the GitHub Pages site root. Published module
+sources, version identities, and assigned timestamps are immutable after that
+transition.
 
 ## Development
 
@@ -235,7 +246,16 @@ make validate            # Validate layout and pinned source releases.
 make generate            # Generate the complete public distribution.
 make verify              # Fail if any generated dist/ file differs.
 make check-immutable BASE=<git-object>
+make stamp               # Stamp canonical versions missing publishedAt.
+make check-stamped       # Check that every canonical version is stamped.
 ```
+
+`make stamp STAMP_TIMESTAMP=<RFC3339>` supplies a deterministic timestamp;
+without it, Barn uses the current UTC time. The initial 17 registry versions
+were backfilled with `2026-08-07T18:24:28Z`, the committer time of the earliest
+Git commit (`96355d9`) in which those versions were registered. That history
+lookup was a one-time migration; ongoing generation relies only on the stored
+timestamps.
 
 The generation commands are maintainer and CI tools; module registrants do not
 need to run them. The Barn CLI's `--root` option refers to the Barn repository

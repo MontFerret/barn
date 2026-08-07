@@ -1,0 +1,81 @@
+name: Stamp publication timestamps
+
+on:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+    types:
+      - publication-stamped
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stamp-publications-main
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    name: Stamp unstamped versions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Capture publication base
+        id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp unpublished versions
+        run: make stamp
+
+      - name: Detect canonical source changes
+        id: changes
+        run: |
+          if git diff --quiet -- registry/modules; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate publication transition
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          make check-stamped
+          make check-immutable BASE='${{ steps.base.outputs.sha }}'
+
+      - name: Commit publication timestamps
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- registry/modules
+          git commit -m 'Stamp published module versions'
+
+      - name: Push publication timestamps
+        if: steps.changes.outputs.changed == 'true'
+        run: git push origin HEAD:main
+
+      - name: Dispatch CI for stamped main
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          stamped_sha=$(git rev-parse HEAD)
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/dispatches" \
+            -f event_type=publication-stamped \
+            -F "client_payload[base]=${{ steps.base.outputs.sha }}" \
+            -F "client_payload[sha]=$stamped_sha"

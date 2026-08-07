@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/MontFerret/barn/internal/barn"
 )
@@ -22,13 +23,15 @@ func main() {
 
 func run(ctx context.Context, arguments []string) error {
 	if len(arguments) == 0 {
-		return fmt.Errorf("usage: barn <validate|generate|verify|check-immutable> [options]")
+		return fmt.Errorf("usage: barn <validate|generate|verify|check-immutable|stamp> [options]")
 	}
 
 	command := arguments[0]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	root := flags.String("root", ".", "Barn repository root containing registry/; dist/ is generated there")
 	base := flags.String("base", "", "base Git object for immutability validation")
+	timestamp := flags.String("timestamp", "", "publication timestamp for stamp (defaults to the current UTC time)")
+	check := flags.Bool("check", false, "report whether all versions are stamped without modifying files")
 
 	if err := flags.Parse(arguments[1:]); err != nil {
 		return err
@@ -44,6 +47,29 @@ func run(ctx context.Context, arguments []string) error {
 		}
 
 		return barn.CheckImmutable(ctx, *root, *base)
+	}
+
+	if command == "stamp" {
+		if *check {
+			if *timestamp != "" {
+				return fmt.Errorf("stamp --check does not accept --timestamp")
+			}
+
+			return barn.CheckVersionsStamped(*root)
+		}
+
+		publishedAt := time.Now()
+		if *timestamp != "" {
+			var err error
+			publishedAt, err = time.Parse(time.RFC3339, *timestamp)
+			if err != nil {
+				return fmt.Errorf("parse publication timestamp: %w", err)
+			}
+		}
+
+		_, err := barn.StampVersions(*root, publishedAt)
+
+		return err
 	}
 
 	if command != "validate" && command != "generate" && command != "verify" {
