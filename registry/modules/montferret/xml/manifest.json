@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schemas.ferretlang.org/registry/module/v1.json",
+  "owner": "montferret",
+  "name": "xml",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/xml"
+  }
+}
