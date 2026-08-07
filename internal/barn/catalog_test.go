@@ -100,6 +100,13 @@ func TestGenerateEmptyPluginCatalog(t *testing.T) {
 }
 
 func TestCatalogWriteAndVerification(t *testing.T) {
+	if moduleCatalogPath != "dist/modules/index.json" {
+		t.Fatalf("unexpected module catalog path: %s", moduleCatalogPath)
+	}
+	if pluginCatalogPath != "dist/plugins/index.json" {
+		t.Fatalf("unexpected plugin catalog path: %s", pluginCatalogPath)
+	}
+
 	root := t.TempDir()
 	moduleCatalog, err := GenerateModuleCatalog(&Registry{})
 	if err != nil {
@@ -127,6 +134,9 @@ func TestCatalogWriteAndVerification(t *testing.T) {
 	}
 	if err := VerifyPluginCatalog(root, pluginCatalog); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "catalog")); !os.IsNotExist(err) {
+		t.Fatalf("legacy catalog directory was created: %v", err)
 	}
 
 	modulePath := filepath.Join(root, filepath.FromSlash(moduleCatalogPath))

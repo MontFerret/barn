@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	moduleCatalogPath = "catalog/modules/index.json"
-	pluginCatalogPath = "catalog/plugins/index.json"
+	moduleCatalogPath = "dist/modules/index.json"
+	pluginCatalogPath = "dist/plugins/index.json"
 )
 
 type (
@@ -156,19 +156,19 @@ func sortVersions(versions []*Version) error {
 	return nil
 }
 
-// WriteModuleCatalog atomically replaces the checked-in module catalog.
+// WriteModuleCatalog atomically replaces the generated module catalog.
 func WriteModuleCatalog(root string, data []byte) error {
 	return writeCatalog(root, "modules", data)
 }
 
-// WritePluginCatalog atomically replaces the checked-in plugin catalog.
+// WritePluginCatalog atomically replaces the generated plugin catalog.
 func WritePluginCatalog(root string, data []byte) error {
 	return writeCatalog(root, "plugins", data)
 }
 
 func writeCatalog(root, kind string, data []byte) error {
-	relativePath := filepath.Join("catalog", kind, "index.json")
-	directory := filepath.Join(root, "catalog", kind)
+	relativePath := filepath.Join("dist", kind, "index.json")
+	directory := filepath.Join(root, "dist", kind)
 
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return fmt.Errorf("create %s catalog directory: %w", kind, err)
@@ -205,12 +205,12 @@ func writeCatalog(root, kind string, data []byte) error {
 	return nil
 }
 
-// VerifyModuleCatalog fails when the checked-in module catalog differs from generated data.
+// VerifyModuleCatalog fails when the generated module catalog differs from current Registry data.
 func VerifyModuleCatalog(root string, generated []byte) error {
 	return verifyCatalog(root, moduleCatalogPath, generated)
 }
 
-// VerifyPluginCatalog fails when the checked-in plugin catalog differs from generated data.
+// VerifyPluginCatalog fails when the generated plugin catalog differs from current Registry data.
 func VerifyPluginCatalog(root string, generated []byte) error {
 	return verifyCatalog(root, pluginCatalogPath, generated)
 }
@@ -218,7 +218,7 @@ func VerifyPluginCatalog(root string, generated []byte) error {
 func verifyCatalog(root, relativePath string, generated []byte) error {
 	current, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relativePath)))
 	if err != nil {
-		return fmt.Errorf("read checked-in %s: %w", relativePath, err)
+		return fmt.Errorf("read generated %s: %w", relativePath, err)
 	}
 
 	if !bytes.Equal(current, generated) {

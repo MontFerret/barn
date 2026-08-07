@@ -9,7 +9,7 @@ GO_FILES := $(shell find . -type f -name '*.go' -not -path './vendor/*' | sort)
 
 .PHONY: check build test test-race vet fmt fmt-check tidy mod-check validate generate verify check-immutable help
 
-check: fmt-check vet test validate verify ## Run all local and registry checks.
+check: fmt-check vet test validate ## Run all local source and registry checks.
 
 build: ## Build all Go packages.
 	$(GO) build $(PACKAGES)
@@ -42,10 +42,10 @@ mod-check: ## Check module metadata without changing files.
 validate: ## Validate the complete registry and pinned releases.
 	$(GO) run ./cmd/barn validate
 
-generate: ## Regenerate artifact-specific catalog indexes.
+generate: ## Generate artifact-specific indexes under dist/.
 	$(GO) run ./cmd/barn generate
 
-verify: ## Verify artifact-specific catalog indexes are current.
+verify: ## Verify generated dist/ indexes are current.
 	$(GO) run ./cmd/barn verify
 
 check-immutable: ## Check published records against BASE.
