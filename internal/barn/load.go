@@ -3,11 +3,18 @@ package barn
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	registryspec "github.com/MontFerret/specs/pkg/registry"
+)
+
+const (
+	registrySourcePath = "registry"
+	moduleRegistryPath = registrySourcePath + "/modules"
+	pluginRegistryPath = registrySourcePath + "/plugins"
 )
 
 var versionFilename = regexp.MustCompile(`^v(.+)\.json$`)
@@ -16,24 +23,32 @@ var versionFilename = regexp.MustCompile(`^v(.+)\.json$`)
 func Load(root string) (*Registry, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
-		return nil, fmt.Errorf("resolve registry root: %w", err)
+		return nil, fmt.Errorf("resolve Barn repository root: %w", err)
 	}
 
-	modulesRoot := filepath.Join(root, "modules")
+	modulesRoot := filepath.Join(root, filepath.FromSlash(moduleRegistryPath))
 	ownerEntries, err := readDirectory(modulesRoot)
 	if err != nil {
-		return nil, fmt.Errorf("read modules directory: %w", err)
+		return nil, fmt.Errorf("read %s directory: %w", moduleRegistryPath, err)
+	}
+
+	if err := validateReservedPluginRoot(root); err != nil {
+		return nil, err
 	}
 
 	result := &Registry{Root: root, Modules: make([]*Module, 0)}
 	identities := make(map[string]string)
 
 	for _, ownerEntry := range ownerEntries {
-		if ownerEntry.Name() == ".gitkeep" && !ownerEntry.IsDir() {
+		if ownerEntry.Name() == ".gitkeep" {
+			if ownerEntry.IsDir() || ownerEntry.Type()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("%s must be a regular file", path.Join(moduleRegistryPath, ownerEntry.Name()))
+			}
+
 			continue
 		}
 
-		if err := requireDirectory(ownerEntry, filepath.Join("modules", ownerEntry.Name())); err != nil {
+		if err := requireDirectory(ownerEntry, path.Join(moduleRegistryPath, ownerEntry.Name())); err != nil {
 			return nil, err
 		}
 
@@ -45,7 +60,7 @@ func Load(root string) (*Registry, error) {
 		}
 
 		for _, moduleEntry := range moduleEntries {
-			relative := filepath.Join("modules", owner, moduleEntry.Name())
+			relative := path.Join(moduleRegistryPath, owner, moduleEntry.Name())
 			if err := requireDirectory(moduleEntry, relative); err != nil {
 				return nil, err
 			}
@@ -66,6 +81,24 @@ func Load(root string) (*Registry, error) {
 	return result, nil
 }
 
+func validateReservedPluginRoot(root string) error {
+	entries, err := readDirectory(filepath.Join(root, filepath.FromSlash(pluginRegistryPath)))
+	if err != nil {
+		return fmt.Errorf("read %s directory: %w", pluginRegistryPath, err)
+	}
+
+	for _, entry := range entries {
+		relative := path.Join(pluginRegistryPath, entry.Name())
+		if entry.Name() == ".gitkeep" && !entry.IsDir() && entry.Type()&os.ModeSymlink == 0 {
+			continue
+		}
+
+		return fmt.Errorf("unexpected registry entry %s: plugin registrations are not supported", relative)
+	}
+
+	return nil
+}
+
 func addIdentity(identities map[string]string, module *Module) error {
 	if previous, exists := identities[module.ID()]; exists {
 		return fmt.Errorf("duplicate module identity %q in %s and %s", module.ID(), previous, module.Directory)
@@ -77,17 +110,18 @@ func addIdentity(identities map[string]string, module *Module) error {
 }
 
 func loadModule(root, owner, name string) (*Module, error) {
-	directory := filepath.Join(root, "modules", owner, name)
+	relativeDirectory := path.Join(moduleRegistryPath, owner, name)
+	directory := filepath.Join(root, filepath.FromSlash(relativeDirectory))
 	entries, err := readDirectory(directory)
 	if err != nil {
-		return nil, fmt.Errorf("read module directory %q: %w", filepath.Join(owner, name), err)
+		return nil, fmt.Errorf("read module directory %q: %w", relativeDirectory, err)
 	}
 
 	seenManifest := false
 	seenVersions := false
 
 	for _, entry := range entries {
-		relative := filepath.Join("modules", owner, name, entry.Name())
+		relative := path.Join(relativeDirectory, entry.Name())
 		switch entry.Name() {
 		case "manifest.json":
 			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
@@ -107,7 +141,7 @@ func loadModule(root, owner, name string) (*Module, error) {
 	}
 
 	if !seenManifest || !seenVersions {
-		return nil, fmt.Errorf("module %s/%s must contain manifest.json and versions/", owner, name)
+		return nil, fmt.Errorf("module %s must contain manifest.json and versions/", relativeDirectory)
 	}
 
 	manifestPath := filepath.Join(directory, "manifest.json")
@@ -117,11 +151,11 @@ func loadModule(root, owner, name string) (*Module, error) {
 	}
 
 	if manifest.Owner != owner {
-		return nil, fmt.Errorf("module manifest owner %q does not match directory owner %q", manifest.Owner, owner)
+		return nil, fmt.Errorf("module manifest %s owner %q does not match directory owner %q", path.Join(relativeDirectory, "manifest.json"), manifest.Owner, owner)
 	}
 
 	if manifest.Name != name {
-		return nil, fmt.Errorf("module manifest name %q does not match directory name %q", manifest.Name, name)
+		return nil, fmt.Errorf("module manifest %s name %q does not match directory name %q", path.Join(relativeDirectory, "manifest.json"), manifest.Name, name)
 	}
 
 	versions, err := loadVersions(root, owner, name)
@@ -130,23 +164,24 @@ func loadModule(root, owner, name string) (*Module, error) {
 	}
 
 	if len(versions) == 0 {
-		return nil, fmt.Errorf("module %s/%s must contain at least one version record", owner, name)
+		return nil, fmt.Errorf("module %s must contain at least one version record", relativeDirectory)
 	}
 
 	return &Module{Directory: directory, Manifest: manifest, Versions: versions}, nil
 }
 
 func loadVersions(root, owner, name string) ([]*Version, error) {
-	directory := filepath.Join(root, "modules", owner, name, "versions")
+	relativeDirectory := path.Join(moduleRegistryPath, owner, name, "versions")
+	directory := filepath.Join(root, filepath.FromSlash(relativeDirectory))
 	entries, err := readDirectory(directory)
 	if err != nil {
-		return nil, fmt.Errorf("read versions for %s/%s: %w", owner, name, err)
+		return nil, fmt.Errorf("read versions directory %s: %w", relativeDirectory, err)
 	}
 
 	versions := make([]*Version, 0, len(entries))
 
 	for _, entry := range entries {
-		relative := filepath.Join("modules", owner, name, "versions", entry.Name())
+		relative := path.Join(relativeDirectory, entry.Name())
 
 		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("version record %s must be a regular file", relative)
@@ -164,7 +199,7 @@ func loadVersions(root, owner, name string) ([]*Version, error) {
 		}
 
 		if match[1] != record.Version {
-			return nil, fmt.Errorf("version filename %q does not match declared version %q", entry.Name(), record.Version)
+			return nil, fmt.Errorf("version record %s declares version %q, which does not match its filename", relative, record.Version)
 		}
 
 		versions = append(versions, &Version{Path: filePath, Record: record})

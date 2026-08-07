@@ -28,7 +28,7 @@ func run(ctx context.Context, arguments []string) error {
 
 	command := arguments[0]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
-	root := flags.String("root", ".", "registry repository root")
+	root := flags.String("root", ".", "Barn repository root containing registry/ and catalog/")
 	base := flags.String("base", "", "base Git object for immutability validation")
 
 	if err := flags.Parse(arguments[1:]); err != nil {

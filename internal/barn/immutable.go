@@ -15,7 +15,7 @@ import (
 func CheckImmutable(ctx context.Context, root, base string) error {
 	root, err := filepath.Abs(root)
 	if err != nil {
-		return fmt.Errorf("resolve registry root: %w", err)
+		return fmt.Errorf("resolve Barn repository root: %w", err)
 	}
 
 	commit, err := runRepositoryGit(ctx, root, "rev-parse", "--verify", "--end-of-options", base+"^{commit}")
@@ -24,7 +24,7 @@ func CheckImmutable(ctx context.Context, root, base string) error {
 	}
 
 	baseCommit := strings.TrimSpace(string(commit))
-	listing, err := runRepositoryGit(ctx, root, "ls-tree", "-r", "--name-only", baseCommit, "--", "modules")
+	listing, err := runRepositoryGit(ctx, root, "ls-tree", "-r", "--name-only", baseCommit, "--", moduleRegistryPath)
 	if err != nil {
 		return fmt.Errorf("list registry state at %s: %w", baseCommit, err)
 	}
@@ -36,9 +36,9 @@ func CheckImmutable(ctx context.Context, root, base string) error {
 	for _, entryPath := range paths {
 		parts := strings.Split(filepath.ToSlash(entryPath), "/")
 
-		if len(parts) == 5 && parts[0] == "modules" && parts[3] == "versions" && versionFilename.MatchString(parts[4]) {
+		if len(parts) == 6 && strings.Join(parts[:2], "/") == moduleRegistryPath && parts[4] == "versions" && versionFilename.MatchString(parts[5]) {
 			versionPaths = append(versionPaths, entryPath)
-			manifestHasVersions[strings.Join(parts[:3], "/")+"/manifest.json"] = true
+			manifestHasVersions[strings.Join(parts[:4], "/")+"/manifest.json"] = true
 		}
 	}
 
@@ -98,7 +98,7 @@ func CheckImmutable(ctx context.Context, root, base string) error {
 		}
 
 		if baseManifest.Source != currentManifest.Source {
-			return fmt.Errorf("source for published module %s changed", baseManifest.Owner+"/"+baseManifest.Name)
+			return fmt.Errorf("source for published module %s in %s changed", baseManifest.Owner+"/"+baseManifest.Name, manifestPath)
 		}
 	}
 

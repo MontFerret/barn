@@ -18,13 +18,34 @@ const testCommit = "0123456789abcdef0123456789abcdef01234567"
 
 func writeRegistryRecord(t *testing.T, root, ownerDirectory, moduleDirectory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
 	t.Helper()
+	ensureRegistryRoots(t, root)
+	directory := filepath.Join(root, filepath.FromSlash(moduleRegistryPath), ownerDirectory, moduleDirectory)
+	writeRegistryRecordInDirectory(t, directory, manifest, records...)
+}
+
+func writeLegacyRegistryRecord(t *testing.T, root, ownerDirectory, moduleDirectory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
+	t.Helper()
 	directory := filepath.Join(root, "modules", ownerDirectory, moduleDirectory)
+	writeRegistryRecordInDirectory(t, directory, manifest, records...)
+}
+
+func writeRegistryRecordInDirectory(t *testing.T, directory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
+	t.Helper()
 	if err := os.MkdirAll(filepath.Join(directory, "versions"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	writeJSON(t, filepath.Join(directory, "manifest.json"), manifest)
 	for _, record := range records {
 		writeJSON(t, filepath.Join(directory, "versions", "v"+record.Version+".json"), record)
+	}
+}
+
+func ensureRegistryRoots(t *testing.T, root string) {
+	t.Helper()
+	for _, relative := range []string{moduleRegistryPath, pluginRegistryPath} {
+		if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(relative)), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

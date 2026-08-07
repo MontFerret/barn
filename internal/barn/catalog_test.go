@@ -1,6 +1,7 @@
 package barn
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,6 +11,39 @@ import (
 
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 )
+
+func TestCanonicalRegistryLayoutGeneratesModuleCatalog(t *testing.T) {
+	const sourcePath = "modules/archive"
+
+	sourceManifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.2.0", "Work with archives.")
+	sourceManifest.Repository.Directory = sourcePath
+	fixture := newGitFixture(t, sourcePath, sourceManifest, "archive/v1.2.0", true)
+	registryManifest := testRegistryManifest("montferret", "archive")
+	registryManifest.Source.Path = sourcePath
+	root := t.TempDir()
+	writeRegistryRecord(t, root, "montferret", "archive", registryManifest, testVersion("1.2.0", "archive/v1.2.0", fixture.commit))
+
+	registry, err := Validate(context.Background(), root, GitInspector{Resolver: fixtureResolver(fixture.directory)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated, err := GenerateModuleCatalog(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var catalog ModuleCatalog
+	if err := json.Unmarshal(generated, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Modules) != 1 {
+		t.Fatalf("unexpected module catalog: %#v", catalog)
+	}
+	entry := catalog.Modules[0]
+	if entry.ID != "montferret/archive" || entry.Latest != "1.2.0" || entry.Source.Path != sourcePath || len(entry.Versions) != 1 {
+		t.Fatalf("unexpected canonical-layout catalog entry: %#v", entry)
+	}
+}
 
 func TestGenerateModuleCatalogDeterministicOrderingAndLatest(t *testing.T) {
 	archive := catalogTestModule("montferret", "archive", []catalogTestVersion{

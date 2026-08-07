@@ -21,10 +21,11 @@ func TestLoadValidRegistryLayout(t *testing.T) {
 
 func TestLoadEmptyRegistry(t *testing.T) {
 	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, "modules"), 0o755); err != nil {
+	ensureRegistryRoots(t, root)
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(moduleRegistryPath), ".gitkeep"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "modules", ".gitkeep"), nil, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(pluginRegistryPath), ".gitkeep"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	registry, err := Load(root)
@@ -46,7 +47,7 @@ func TestLoadRejectsIdentityAndFilenameMismatches(t *testing.T) {
 		},
 		"version filename": func(t *testing.T, root string) {
 			writeRegistryRecord(t, root, "montferret", "archive", testRegistryManifest("montferret", "archive"), testVersion("1.0.0", "v1.0.0", testCommit))
-			oldPath := filepath.Join(root, "modules", "montferret", "archive", "versions", "v1.0.0.json")
+			oldPath := filepath.Join(root, filepath.FromSlash(moduleRegistryPath), "montferret", "archive", "versions", "v1.0.0.json")
 			if err := os.Rename(oldPath, filepath.Join(filepath.Dir(oldPath), "v2.0.0.json")); err != nil {
 				t.Fatal(err)
 			}
@@ -69,11 +70,12 @@ func TestLoadRejectsEmptyModuleAndUnexpectedEntries(t *testing.T) {
 		t.Fatalf("expected empty module failure, got %v", err)
 	}
 
-	writeJSON(t, filepath.Join(root, "modules", "montferret", "archive", "versions", "v1.0.0.json"), testVersion("1.0.0", "v1.0.0", testCommit))
-	if err := os.WriteFile(filepath.Join(root, "modules", "montferret", "archive", "README.md"), nil, 0o644); err != nil {
+	moduleDirectory := filepath.Join(root, filepath.FromSlash(moduleRegistryPath), "montferret", "archive")
+	writeJSON(t, filepath.Join(moduleDirectory, "versions", "v1.0.0.json"), testVersion("1.0.0", "v1.0.0", testCommit))
+	if err := os.WriteFile(filepath.Join(moduleDirectory, "README.md"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(root); err == nil || !strings.Contains(err.Error(), "unexpected registry entry") {
+	if _, err := Load(root); err == nil || !strings.Contains(err.Error(), moduleRegistryPath+"/montferret/archive/README.md") {
 		t.Fatalf("expected unexpected entry failure, got %v", err)
 	}
 }
@@ -81,7 +83,7 @@ func TestLoadRejectsEmptyModuleAndUnexpectedEntries(t *testing.T) {
 func TestLoadRejectsMissingVersionFields(t *testing.T) {
 	root := t.TempDir()
 	writeRegistryRecord(t, root, "montferret", "archive", testRegistryManifest("montferret", "archive"), testVersion("1.0.0", "v1.0.0", testCommit))
-	filePath := filepath.Join(root, "modules", "montferret", "archive", "versions", "v1.0.0.json")
+	filePath := filepath.Join(root, filepath.FromSlash(moduleRegistryPath), "montferret", "archive", "versions", "v1.0.0.json")
 	if err := os.WriteFile(filePath, []byte(`{"$schema":"https://schemas.ferretlang.org/registry/version/v1.json","version":"1.0.0","tag":"v1.0.0"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +95,70 @@ func TestLoadRejectsMissingVersionFields(t *testing.T) {
 func TestLoadRejectsSymlinks(t *testing.T) {
 	root := t.TempDir()
 	writeRegistryRecord(t, root, "montferret", "archive", testRegistryManifest("montferret", "archive"), testVersion("1.0.0", "v1.0.0", testCommit))
-	versions := filepath.Join(root, "modules", "montferret", "archive", "versions")
+	versions := filepath.Join(root, filepath.FromSlash(moduleRegistryPath), "montferret", "archive", "versions")
 	if err := os.Symlink(filepath.Join(versions, "v1.0.0.json"), filepath.Join(versions, "v1.1.0.json")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(root); err == nil {
-		t.Fatal("expected symlink to be rejected")
+	if _, err := Load(root); err == nil || !strings.Contains(err.Error(), moduleRegistryPath+"/montferret/archive/versions/v1.1.0.json") {
+		t.Fatalf("expected symlink path to be rejected, got %v", err)
 	}
+}
+
+func TestLoadDoesNotUseLegacyRegistrationRoots(t *testing.T) {
+	t.Run("ignored when canonical roots exist", func(t *testing.T) {
+		root := t.TempDir()
+		ensureRegistryRoots(t, root)
+		writeLegacyRegistryRecord(t, root, "montferret", "archive", testRegistryManifest("montferret", "archive"), testVersion("1.0.0", "v1.0.0", testCommit))
+		if err := os.MkdirAll(filepath.Join(root, "plugins", "montferret", "archive"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		registry, err := Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(registry.Modules) != 0 {
+			t.Fatalf("legacy module root was discovered: %#v", registry.Modules)
+		}
+	})
+
+	t.Run("cannot replace canonical module root", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(pluginRegistryPath)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		writeLegacyRegistryRecord(t, root, "montferret", "archive", testRegistryManifest("montferret", "archive"), testVersion("1.0.0", "v1.0.0", testCommit))
+
+		if _, err := Load(root); err == nil || !strings.Contains(err.Error(), moduleRegistryPath) {
+			t.Fatalf("expected missing canonical module root failure, got %v", err)
+		}
+	})
+}
+
+func TestLoadValidatesReservedPluginRoot(t *testing.T) {
+	t.Run("required", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(moduleRegistryPath)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := Load(root); err == nil || !strings.Contains(err.Error(), pluginRegistryPath) {
+			t.Fatalf("expected missing plugin root failure, got %v", err)
+		}
+	})
+
+	t.Run("registration entries rejected", func(t *testing.T) {
+		root := t.TempDir()
+		ensureRegistryRoots(t, root)
+		unexpected := filepath.Join(root, filepath.FromSlash(pluginRegistryPath), "montferret")
+		if err := os.Mkdir(unexpected, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := Load(root); err == nil || !strings.Contains(err.Error(), pluginRegistryPath+"/montferret") {
+			t.Fatalf("expected reserved plugin entry failure, got %v", err)
+		}
+	})
 }
 
 func TestDuplicateIdentityDetection(t *testing.T) {
