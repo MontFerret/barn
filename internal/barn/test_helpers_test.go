@@ -173,7 +173,14 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 			repository += fmt.Sprintf("  directory: %s\n", manifest.Repository.Directory)
 		}
 	}
-	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s%s",
+	categories := ""
+	if len(manifest.Categories) != 0 {
+		categories = "categories:\n"
+		for _, category := range manifest.Categories {
+			categories += fmt.Sprintf("  - %q\n", category)
+		}
+	}
+	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s%s%s",
 		manifest.Schema,
 		manifest.Name,
 		manifest.Namespace,
@@ -183,6 +190,7 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 		manifest.Documentation,
 		repository,
 		compatibility,
+		categories,
 	)
 	if err := os.WriteFile(filePath, []byte(data), 0o644); err != nil {
 		t.Fatal(err)

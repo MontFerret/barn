@@ -22,21 +22,37 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 				Manifest: registryManifest,
 				Versions: []*Version{{Record: testVersion("1.2.0", "archive/v1.2.0", fixture.commit)}},
 			}}}
+
 			inspector := GitInspector{Resolver: fixtureResolver(fixture.directory)}
 			if err := inspector.Resolve(context.Background(), registry); err != nil {
 				t.Fatal(err)
 			}
+
 			got := registry.Modules[0].Versions[0].Manifest
 			if got == nil || got.Namespace != "ARCHIVE" {
 				t.Fatalf("manifest not resolved: %#v", got)
 			}
+
 			if got.Repository == nil || got.Repository.URL != "https://fixtures.invalid/source.git" || got.Repository.Directory != sourcePath {
 				t.Fatalf("repository metadata not decoded: %#v", got.Repository)
 			}
+
 			if got := string(registry.Modules[0].Versions[0].Documentation); got != testDocumentation {
 				t.Fatalf("documentation not resolved: %q", got)
 			}
 		})
+	}
+}
+
+func TestGitInspectorRejectsInvalidCategoryID(t *testing.T) {
+	manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.0.0", "Archives.")
+	manifest.Categories = []string{"../legacy"}
+	fixture := newGitFixture(t, "", manifest, "v1.0.0", false)
+	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
+
+	err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+	if err == nil || !strings.Contains(err.Error(), "montferret/archive@1.0.0") || !strings.Contains(err.Error(), `category "../legacy"`) || !strings.Contains(err.Error(), categoryIDPatternText) {
+		t.Fatalf("expected contextual category validation error, got %v", err)
 	}
 }
 

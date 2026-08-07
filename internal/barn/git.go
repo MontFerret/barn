@@ -165,6 +165,9 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 	if manifest.Version != version.Record.Version {
 		return fmt.Errorf("source manifest version %q does not match registry version %q", manifest.Version, version.Record.Version)
 	}
+	if err := validateCategoryIDs(registryModule.ID(), version.Record.Version, manifest.Categories); err != nil {
+		return err
+	}
 
 	documentation, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+documentationPath)
 	if err != nil {
@@ -260,6 +263,7 @@ func runGit(ctx context.Context, directory string, allowFile bool, temporaryRoot
 	var stderr bytes.Buffer
 	command.Stderr = &stderr
 	output, err := command.Output()
+
 	if err != nil {
 		message := strings.TrimSpace(stderr.String())
 		if message == "" {

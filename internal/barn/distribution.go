@@ -8,13 +8,19 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 )
 
-const distributionPath = "dist"
+const (
+	distributionPath      = "dist"
+	categoryIDPatternText = `^[a-z0-9]+(?:-[a-z0-9]+)*$`
+)
+
+var categoryIDPattern = regexp.MustCompile(categoryIDPatternText)
 
 type (
 	// Distribution is the complete generated public registry representation.
@@ -37,6 +43,29 @@ type (
 		ID     string `json:"id"`
 		Latest string `json:"latest,omitempty"`
 		Href   string `json:"href"`
+	}
+
+	CategoryIndex struct {
+		SchemaVersion int                  `json:"schemaVersion"`
+		Categories    []CategoryIndexEntry `json:"categories"`
+	}
+
+	CategoryIndexEntry struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+		Href  string `json:"href"`
+	}
+
+	CategoryDocument struct {
+		SchemaVersion int                `json:"schemaVersion"`
+		Category      CategorySummary    `json:"category"`
+		Modules       []ModuleIndexEntry `json:"modules"`
+	}
+
+	CategorySummary struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
 	}
 
 	PluginIndex struct {
@@ -74,6 +103,16 @@ type (
 		Path       string `json:"path,omitempty"`
 		Commit     string `json:"commit"`
 	}
+
+	moduleProjection struct {
+		indexEntry  ModuleIndexEntry
+		categoryIDs []string
+	}
+
+	categoryAccumulator struct {
+		summary CategorySummary
+		modules []ModuleIndexEntry
+	}
 )
 
 // GenerateDistribution projects a resolved Registry into the complete public dist/ tree.
@@ -86,8 +125,9 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	if err := distribution.addJSON("index.json", RootIndex{
 		SchemaVersion: 1,
 		Artifacts: map[string]string{
-			"modules": "/modules/index.json",
-			"plugins": "/plugins/index.json",
+			"categories": "/categories.json",
+			"modules":    "/modules/index.json",
+			"plugins":    "/plugins/index.json",
 		},
 	}); err != nil {
 		return nil, err
@@ -103,10 +143,26 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	modules := append([]*Module(nil), registry.Modules...)
 	sort.Slice(modules, func(i, j int) bool { return modules[i].ID() < modules[j].ID() })
 	index := ModuleIndex{SchemaVersion: 1, Modules: make([]ModuleIndexEntry, 0, len(modules))}
+	categories := make(map[string]*categoryAccumulator)
 
 	for _, registryModule := range modules {
-		if err := addModuleToDistribution(distribution, &index, registryModule); err != nil {
+		projection, err := addModuleToDistribution(distribution, registryModule)
+		if err != nil {
 			return nil, err
+		}
+
+		index.Modules = append(index.Modules, projection.indexEntry)
+		for _, categoryID := range projection.categoryIDs {
+			category, exists := categories[categoryID]
+			if !exists {
+				category = &categoryAccumulator{summary: CategorySummary{
+					ID:   categoryID,
+					Name: categoryDisplayName(categoryID),
+				}}
+				categories[categoryID] = category
+			}
+
+			category.modules = append(category.modules, projection.indexEntry)
 		}
 	}
 
@@ -114,26 +170,66 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 		return nil, err
 	}
 
+	categoryIndex := CategoryIndex{
+		SchemaVersion: 1,
+		Categories:    make([]CategoryIndexEntry, 0, len(categories)),
+	}
+
+	for _, categoryID := range sortedDistributionPaths(categories) {
+		category := categories[categoryID]
+
+		sort.Slice(category.modules, func(i, j int) bool {
+			return category.modules[i].ID < category.modules[j].ID
+		})
+
+		categoryPath := path.Join("categories", categoryID+".json")
+		categoryIndex.Categories = append(categoryIndex.Categories, CategoryIndexEntry{
+			ID:    category.summary.ID,
+			Name:  category.summary.Name,
+			Count: len(category.modules),
+			Href:  "/" + categoryPath,
+		})
+
+		if err := distribution.addJSON(categoryPath, CategoryDocument{
+			SchemaVersion: 1,
+			Category:      category.summary,
+			Modules:       category.modules,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := distribution.addJSON("categories.json", categoryIndex); err != nil {
+		return nil, err
+	}
+
 	return distribution, nil
 }
 
-func addModuleToDistribution(distribution *Distribution, index *ModuleIndex, registryModule *Module) error {
+func addModuleToDistribution(distribution *Distribution, registryModule *Module) (moduleProjection, error) {
 	versions := append([]*Version(nil), registryModule.Versions...)
 	if len(versions) == 0 {
-		return fmt.Errorf("module %s has no versions", registryModule.ID())
+		return moduleProjection{}, fmt.Errorf("module %s has no versions", registryModule.ID())
 	}
+
 	if err := sortVersions(versions); err != nil {
-		return fmt.Errorf("sort versions for %s: %w", registryModule.ID(), err)
+		return moduleProjection{}, fmt.Errorf("sort versions for %s: %w", registryModule.ID(), err)
 	}
 
 	metadataVersion := versions[0]
 	latest := ""
+
 	for _, version := range versions {
 		if version.Manifest == nil {
-			return fmt.Errorf("module %s@%s has not been resolved", registryModule.ID(), version.Record.Version)
+			return moduleProjection{}, fmt.Errorf("module %s@%s has not been resolved", registryModule.ID(), version.Record.Version)
 		}
+
 		if version.Documentation == nil {
-			return fmt.Errorf("module %s@%s documentation has not been resolved", registryModule.ID(), version.Record.Version)
+			return moduleProjection{}, fmt.Errorf("module %s@%s documentation has not been resolved", registryModule.ID(), version.Record.Version)
+		}
+
+		if err := validateCategoryIDs(registryModule.ID(), version.Record.Version, version.Manifest.Categories); err != nil {
+			return moduleProjection{}, err
 		}
 
 		parsed, _ := semver.StrictNewVersion(version.Record.Version)
@@ -144,11 +240,11 @@ func addModuleToDistribution(distribution *Distribution, index *ModuleIndex, reg
 	}
 
 	modulePath := path.Join("modules", registryModule.Manifest.Owner, registryModule.Manifest.Name)
-	index.Modules = append(index.Modules, ModuleIndexEntry{
+	indexEntry := ModuleIndexEntry{
 		ID:     registryModule.ID(),
 		Latest: latest,
 		Href:   "/" + path.Join(modulePath, "index.json"),
-	})
+	}
 
 	document := ModuleDocument{
 		SchemaVersion: 1,
@@ -187,12 +283,50 @@ func addModuleToDistribution(distribution *Distribution, index *ModuleIndex, reg
 		}
 
 		if err := distribution.addJSON(path.Join(versionPath, "index.json"), versionDocument); err != nil {
-			return err
+			return moduleProjection{}, err
 		}
+
 		distribution.Files[path.Join(versionPath, "docs.md")] = bytes.Clone(version.Documentation)
 	}
 
-	return distribution.addJSON(path.Join(modulePath, "index.json"), document)
+	if err := distribution.addJSON(path.Join(modulePath, "index.json"), document); err != nil {
+		return moduleProjection{}, err
+	}
+
+	return moduleProjection{
+		indexEntry:  indexEntry,
+		categoryIDs: uniqueCategoryIDs(metadataVersion.Manifest.Categories),
+	}, nil
+}
+
+func validateCategoryIDs(moduleID, version string, categories []string) error {
+	for _, categoryID := range categories {
+		if !categoryIDPattern.MatchString(categoryID) {
+			return fmt.Errorf("module %s@%s category %q is invalid: must match %s", moduleID, version, categoryID, categoryIDPatternText)
+		}
+	}
+
+	return nil
+}
+
+func uniqueCategoryIDs(categories []string) []string {
+	unique := make(map[string]struct{}, len(categories))
+
+	for _, categoryID := range categories {
+		unique[categoryID] = struct{}{}
+	}
+
+	return sortedDistributionPaths(unique)
+}
+
+func categoryDisplayName(categoryID string) string {
+	words := strings.Split(categoryID, "-")
+
+	for index, word := range words {
+		words[index] = strings.ToUpper(word[:1]) + word[1:]
+	}
+
+	return strings.Join(words, " ")
 }
 
 func (distribution *Distribution) addJSON(relativePath string, document any) error {
@@ -239,6 +373,7 @@ func WriteDistribution(root string, distribution *Distribution) error {
 	if err != nil {
 		return fmt.Errorf("create distribution staging directory: %w", err)
 	}
+
 	defer os.RemoveAll(staging)
 
 	if err := os.Chmod(staging, 0o755); err != nil {
@@ -255,6 +390,7 @@ func WriteDistribution(root string, distribution *Distribution) error {
 		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return fmt.Errorf("create directory for %s: %w", relativePath, err)
 		}
+
 		if err := os.WriteFile(filePath, distribution.Files[relativePath], 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", relativePath, err)
 		}
@@ -275,12 +411,14 @@ func WriteDistribution(root string, distribution *Distribution) error {
 	if err != nil {
 		return fmt.Errorf("create distribution replacement directory: %w", err)
 	}
+
 	defer os.RemoveAll(backupRoot)
 
 	backup := filepath.Join(backupRoot, "previous")
 	if err := os.Rename(destination, backup); err != nil {
 		return fmt.Errorf("move existing distribution aside: %w", err)
 	}
+
 	if err := os.Rename(staging, destination); err != nil {
 		if restoreErr := os.Rename(backup, destination); restoreErr != nil {
 			return fmt.Errorf("install distribution: %w (restore previous distribution: %v)", err, restoreErr)
@@ -308,9 +446,11 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 		if walkErr != nil {
 			return walkErr
 		}
+
 		if filePath == destination || entry.IsDir() {
 			return nil
 		}
+
 		if entry.Type()&os.ModeSymlink != 0 || !entry.Type().IsRegular() {
 			return fmt.Errorf("generated %s is not a regular file", filepath.ToSlash(filePath))
 		}
@@ -319,10 +459,12 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 		if err != nil {
 			return err
 		}
+
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
 		}
+
 		actual[filepath.ToSlash(relativePath)] = data
 
 		return nil
@@ -336,9 +478,11 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 		if !exists {
 			return fmt.Errorf("dist/%s is missing; run barn generate", relativePath)
 		}
+
 		if !bytes.Equal(current, distribution.Files[relativePath]) {
 			return fmt.Errorf("dist/%s is stale; run barn generate", relativePath)
 		}
+
 		delete(actual, relativePath)
 	}
 
@@ -351,9 +495,11 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 
 func sortedDistributionPaths[T any](files map[string]T) []string {
 	paths := make([]string, 0, len(files))
+
 	for relativePath := range files {
 		paths = append(paths, relativePath)
 	}
+
 	sort.Strings(paths)
 
 	return paths

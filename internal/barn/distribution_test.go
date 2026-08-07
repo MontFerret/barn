@@ -20,6 +20,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 
 	sourceManifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.2.0", "Work with archives.")
 	sourceManifest.Repository.Directory = sourcePath
+	sourceManifest.Categories = []string{"files"}
 	fixture := newGitFixtureWithDocumentation(t, sourcePath, sourceManifest, "archive/v1.2.0", true, []byte(documentation))
 	registryManifest := testRegistryManifest("montferret", "archive")
 	registryManifest.Source.Path = sourcePath
@@ -36,6 +37,8 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	}
 
 	wantPaths := []string{
+		"categories.json",
+		"categories/files.json",
 		"index.json",
 		"modules/index.json",
 		"modules/montferret/archive/index.json",
@@ -50,8 +53,9 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	var rootIndex RootIndex
 	decodeDistributionJSON(t, distribution, "index.json", &rootIndex)
 	if rootIndex.SchemaVersion != 1 || !reflect.DeepEqual(rootIndex.Artifacts, map[string]string{
-		"modules": "/modules/index.json",
-		"plugins": "/plugins/index.json",
+		"categories": "/categories.json",
+		"modules":    "/modules/index.json",
+		"plugins":    "/plugins/index.json",
 	}) {
 		t.Fatalf("unexpected root index: %#v", rootIndex)
 	}
@@ -68,6 +72,23 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	}
 	if data := string(distribution.Files["modules/index.json"]); strings.Contains(data, "description") || strings.Contains(data, "namespace") || strings.Contains(data, "source") || strings.Contains(data, "versions") {
 		t.Fatalf("module collection embeds detail metadata:\n%s", data)
+	}
+
+	var categoryIndex CategoryIndex
+	decodeDistributionJSON(t, distribution, "categories.json", &categoryIndex)
+	if !reflect.DeepEqual(categoryIndex.Categories, []CategoryIndexEntry{{
+		ID:    "files",
+		Name:  "Files",
+		Count: 1,
+		Href:  "/categories/files.json",
+	}}) {
+		t.Fatalf("unexpected category index: %#v", categoryIndex)
+	}
+
+	var categoryDocument CategoryDocument
+	decodeDistributionJSON(t, distribution, "categories/files.json", &categoryDocument)
+	if categoryDocument.Category != (CategorySummary{ID: "files", Name: "Files"}) || !reflect.DeepEqual(categoryDocument.Modules, []ModuleIndexEntry{wantIndexEntry}) {
+		t.Fatalf("unexpected category document: %#v", categoryDocument)
 	}
 
 	var moduleDocument ModuleDocument
@@ -164,15 +185,152 @@ func TestGenerateDistributionDeterministicOrderingAndLatest(t *testing.T) {
 	}
 }
 
-func TestDistributionRootAndPluginIndexes(t *testing.T) {
+func TestGenerateDistributionCategoryIndexes(t *testing.T) {
+	archive := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{"files", "data-formats", "files"},
+	}})
+	article := distributionTestModule("montferret", "article", []distributionTestVersion{{
+		version: "1.1.0", namespace: "ARTICLE", description: "Articles.", categories: []string{"files"},
+	}})
+	browser := distributionTestModule("acme", "browser-tools", []distributionTestVersion{{
+		version: "2.0.0-beta.1", namespace: "BROWSER", description: "Browser beta.", categories: []string{"web"},
+	}})
+	registry := &Registry{Modules: []*Module{article, browser, archive}}
+
+	first, err := GenerateDistribution(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := GenerateDistribution(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first.Files, second.Files) {
+		t.Fatal("category generation is not deterministic")
+	}
+
+	var categoryIndex CategoryIndex
+	decodeDistributionJSON(t, first, "categories.json", &categoryIndex)
+	wantCategories := []CategoryIndexEntry{
+		{ID: "data-formats", Name: "Data Formats", Count: 1, Href: "/categories/data-formats.json"},
+		{ID: "files", Name: "Files", Count: 2, Href: "/categories/files.json"},
+		{ID: "web", Name: "Web", Count: 1, Href: "/categories/web.json"},
+	}
+	if categoryIndex.SchemaVersion != 1 || !reflect.DeepEqual(categoryIndex.Categories, wantCategories) {
+		t.Fatalf("unexpected category index: %#v", categoryIndex)
+	}
+
+	var moduleIndex ModuleIndex
+	decodeDistributionJSON(t, first, "modules/index.json", &moduleIndex)
+	entriesByID := make(map[string]ModuleIndexEntry, len(moduleIndex.Modules))
+	for _, entry := range moduleIndex.Modules {
+		entriesByID[entry.ID] = entry
+	}
+
+	var files CategoryDocument
+	decodeDistributionJSON(t, first, "categories/files.json", &files)
+	wantFileModules := []ModuleIndexEntry{
+		entriesByID["montferret/archive"],
+		entriesByID["montferret/article"],
+	}
+	if files.SchemaVersion != 1 || files.Category != (CategorySummary{ID: "files", Name: "Files"}) || !reflect.DeepEqual(files.Modules, wantFileModules) {
+		t.Fatalf("unexpected files category: %#v", files)
+	}
+	if data := string(first.Files["categories/files.json"]); strings.Contains(data, "description") || strings.Contains(data, "namespace") || strings.Contains(data, "versions") {
+		t.Fatalf("category listing embeds module details:\n%s", data)
+	}
+
+	var dataFormats CategoryDocument
+	decodeDistributionJSON(t, first, "categories/data-formats.json", &dataFormats)
+	if !reflect.DeepEqual(dataFormats.Modules, []ModuleIndexEntry{entriesByID["montferret/archive"]}) {
+		t.Fatalf("module was not projected into every declared category: %#v", dataFormats)
+	}
+
+	var web CategoryDocument
+	decodeDistributionJSON(t, first, "categories/web.json", &web)
+	if len(web.Modules) != 1 || web.Modules[0].ID != "acme/browser-tools" || web.Modules[0].Latest != "" {
+		t.Fatalf("prerelease-only category summary differs: %#v", web)
+	}
+}
+
+func TestGenerateDistributionCategoriesFollowCurrentMetadataVersion(t *testing.T) {
+	initial := distributionTestModule("montferret", "archive", []distributionTestVersion{
+		{version: "2.0.0-beta.1", namespace: "ARCHIVE_NEXT", description: "Next.", categories: []string{"future"}},
+		{version: "1.0.0", namespace: "ARCHIVE", description: "Stable.", categories: []string{"archives"}},
+	})
+	distribution, err := GenerateDistribution(&Registry{Modules: []*Module{initial}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := distribution.Files["categories/archives.json"]; !exists {
+		t.Fatal("stable metadata category was not generated")
+	}
+	if _, exists := distribution.Files["categories/future.json"]; exists {
+		t.Fatal("newer prerelease category replaced stable metadata")
+	}
+
+	updated := distributionTestModule("montferret", "archive", []distributionTestVersion{
+		{version: "2.0.0", namespace: "ARCHIVE", description: "Current.", categories: []string{"current"}},
+		{version: "2.0.0-beta.1", namespace: "ARCHIVE_NEXT", description: "Next.", categories: []string{"future"}},
+		{version: "1.0.0", namespace: "ARCHIVE", description: "Stable.", categories: []string{"archives"}},
+	})
+	distribution, err = GenerateDistribution(&Registry{Modules: []*Module{updated}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var categoryIndex CategoryIndex
+	decodeDistributionJSON(t, distribution, "categories.json", &categoryIndex)
+	if !reflect.DeepEqual(categoryIndex.Categories, []CategoryIndexEntry{{
+		ID: "current", Name: "Current", Count: 1, Href: "/categories/current.json",
+	}}) {
+		t.Fatalf("category index did not follow updated metadata: %#v", categoryIndex)
+	}
+	for _, stale := range []string{"categories/archives.json", "categories/future.json"} {
+		if _, exists := distribution.Files[stale]; exists {
+			t.Fatalf("stale metadata category %s was generated", stale)
+		}
+	}
+}
+
+func TestGenerateDistributionRejectsInvalidCategoryIDs(t *testing.T) {
+	for _, categoryID := range []string{
+		"",
+		"../legacy",
+		"data/formats",
+		`data\formats`,
+		"data formats",
+		"Data-Formats",
+		"-data",
+		"data-",
+		"data--formats",
+	} {
+		t.Run(strings.ReplaceAll(categoryID, "/", "_"), func(t *testing.T) {
+			module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+				version: "1.0.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{categoryID},
+			}})
+
+			_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+			if err == nil || !strings.Contains(err.Error(), "montferret/archive@1.0.0") || !strings.Contains(err.Error(), categoryIDPatternText) {
+				t.Fatalf("expected contextual category validation error for %q, got %v", categoryID, err)
+			}
+		})
+	}
+}
+
+func TestDistributionRootAndEmptyIndexes(t *testing.T) {
 	distribution, err := GenerateDistribution(&Registry{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wantRoot := "{\n  \"schemaVersion\": 1,\n  \"artifacts\": {\n    \"modules\": \"/modules/index.json\",\n    \"plugins\": \"/plugins/index.json\"\n  }\n}\n"
+	wantRoot := "{\n  \"schemaVersion\": 1,\n  \"artifacts\": {\n    \"categories\": \"/categories.json\",\n    \"modules\": \"/modules/index.json\",\n    \"plugins\": \"/plugins/index.json\"\n  }\n}\n"
 	if got := string(distribution.Files["index.json"]); got != wantRoot {
 		t.Fatalf("root index differs:\n%s", got)
+	}
+	wantCategories := "{\n  \"schemaVersion\": 1,\n  \"categories\": []\n}\n"
+	if got := string(distribution.Files["categories.json"]); got != wantCategories {
+		t.Fatalf("category index differs:\n%s", got)
 	}
 	wantModules := "{\n  \"schemaVersion\": 1,\n  \"modules\": []\n}\n"
 	if got := string(distribution.Files["modules/index.json"]); got != wantModules {
@@ -225,11 +383,14 @@ func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 	if err := WriteDistribution(root, distribution); err != nil {
 		t.Fatal(err)
 	}
-	extraPath := filepath.Join(root, "dist", "modules", "stale.json")
+	extraPath := filepath.Join(root, "dist", "categories", "stale.json")
+	if err := os.MkdirAll(filepath.Dir(extraPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(extraPath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/modules/stale.json is unexpected") {
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/categories/stale.json is unexpected") {
 		t.Fatalf("expected unexpected file error, got %v", err)
 	}
 
@@ -240,6 +401,46 @@ func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 		t.Fatalf("stale output survived full replacement: %v", err)
 	}
 	if err := VerifyDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDistributionReplacementRemovesStaleCategoryArtifacts(t *testing.T) {
+	root := t.TempDir()
+	legacy := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{"legacy"},
+	}})
+	initial, err := GenerateDistribution(&Registry{Modules: []*Module{legacy}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteDistribution(root, initial); err != nil {
+		t.Fatal(err)
+	}
+
+	legacyPath := filepath.Join(root, "dist", "categories", "legacy.json")
+	if _, err := os.Stat(legacyPath); err != nil {
+		t.Fatalf("initial category artifact was not written: %v", err)
+	}
+
+	current := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.1.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{"current"},
+	}})
+	replacement, err := GenerateDistribution(&Registry{Modules: []*Module{current}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteDistribution(root, replacement); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("stale category artifact survived replacement: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "dist", "categories", "current.json")); err != nil {
+		t.Fatalf("replacement category artifact was not written: %v", err)
+	}
+	if err := VerifyDistribution(root, replacement); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -261,12 +462,14 @@ type distributionTestVersion struct {
 	namespace   string
 	description string
 	ferret      string
+	categories  []string
 }
 
 func distributionTestModule(owner, name string, fixtures []distributionTestVersion) *Module {
 	versions := make([]*Version, 0, len(fixtures))
 	for index, fixture := range fixtures {
 		manifest := testModuleManifest(owner+"/"+name, fixture.namespace, fixture.version, fixture.description)
+		manifest.Categories = append([]string(nil), fixture.categories...)
 		if fixture.ferret != "" {
 			manifest.Compatibility = &modulemanifest.Compatibility{Ferret: fixture.ferret}
 		}
