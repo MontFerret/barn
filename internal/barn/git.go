@@ -130,7 +130,7 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 		return fmt.Errorf("declared commit %s for %s@%s does not exist: %w", version.Record.Commit, registryModule.ID(), version.Record.Version, err)
 	}
 
-	manifestPath := moduleManifestFilename
+	manifestPath := modulemanifest.ManifestFilename
 	if registryModule.Manifest.Source.Path != "" {
 		objectType, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-t", version.Record.Commit+":"+registryModule.Manifest.Source.Path)
 		if err != nil {
@@ -141,7 +141,7 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 			return fmt.Errorf("source path %s is not a directory at %s for %s@%s", registryModule.Manifest.Source.Path, version.Record.Commit, registryModule.ID(), version.Record.Version)
 		}
 
-		manifestPath = path.Join(registryModule.Manifest.Source.Path, moduleManifestFilename)
+		manifestPath = path.Join(registryModule.Manifest.Source.Path, modulemanifest.ManifestFilename)
 	}
 
 	data, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+manifestPath)

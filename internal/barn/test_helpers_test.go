@@ -69,6 +69,7 @@ func testModuleManifest(name, namespace, version, description string) *moduleman
 		Description:   description,
 		License:       "Apache-2.0",
 		Documentation: "https://docs.example.org/modules/" + strings.ReplaceAll(name, "/", "-") + "/",
+		Repository:    &modulemanifest.Repository{URL: "https://fixtures.invalid/source.git"},
 	}
 }
 
@@ -78,6 +79,12 @@ type gitFixture struct {
 }
 
 func newGitFixture(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, tag string, annotated bool) gitFixture {
+	t.Helper()
+
+	return newGitFixtureWithManifestFilename(t, sourcePath, manifest, modulemanifest.ManifestFilename, tag, annotated)
+}
+
+func newGitFixtureWithManifestFilename(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, manifestFilename, tag string, annotated bool) gitFixture {
 	t.Helper()
 	directory := t.TempDir()
 	runTestGit(t, directory, "init")
@@ -91,7 +98,7 @@ func newGitFixture(t *testing.T, sourcePath string, manifest *modulemanifest.Man
 		}
 	}
 	if manifest != nil {
-		writeModuleYAML(t, filepath.Join(manifestDirectory, moduleManifestFilename), manifest)
+		writeModuleYAML(t, filepath.Join(manifestDirectory, manifestFilename), manifest)
 	} else {
 		if err := os.WriteFile(filepath.Join(directory, "README.md"), []byte("fixture\n"), 0o644); err != nil {
 			t.Fatal(err)
@@ -116,7 +123,14 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 	if manifest.Compatibility != nil {
 		compatibility = fmt.Sprintf("compatibility:\n  ferret: %q\n", manifest.Compatibility.Ferret)
 	}
-	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s",
+	repository := ""
+	if manifest.Repository != nil {
+		repository = fmt.Sprintf("repository:\n  url: %s\n", manifest.Repository.URL)
+		if manifest.Repository.Directory != "" {
+			repository += fmt.Sprintf("  directory: %s\n", manifest.Repository.Directory)
+		}
+	}
+	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s%s",
 		manifest.Schema,
 		manifest.Name,
 		manifest.Namespace,
@@ -124,6 +138,7 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 		manifest.Description,
 		manifest.License,
 		manifest.Documentation,
+		repository,
 		compatibility,
 	)
 	if err := os.WriteFile(filePath, []byte(data), 0o644); err != nil {

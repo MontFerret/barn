@@ -26,7 +26,7 @@ catalog/
 The canonical identity is `<owner>/<module>`. Registry manifests contain only
 that identity and an anonymous HTTPS Git source. Each version record names a
 Git tag and pins the exact commit to which the tag must resolve. Package
-metadata comes from `ferret-module.yaml` at the pinned commit and optional
+metadata comes from `ferret.yaml` at the pinned commit and optional
 monorepo source path.
 
 Barn consumes the Registry v1 and Module Manifest v1 contracts from

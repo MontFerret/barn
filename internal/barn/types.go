@@ -6,8 +6,6 @@ import (
 	registryspec "github.com/MontFerret/specs/pkg/registry"
 )
 
-const moduleManifestFilename = "ferret-module.yaml"
-
 type (
 	// Registry contains validated registry source records.
 	Registry struct {

@@ -14,6 +14,7 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 		t.Run(strings.ReplaceAll(sourcePath, "/", "_"), func(t *testing.T) {
 			manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.2.0", "Work with archives.")
 			manifest.Compatibility = &modulemanifest.Compatibility{Ferret: ">=2.1.0"}
+			manifest.Repository.Directory = sourcePath
 			fixture := newGitFixture(t, sourcePath, manifest, "archive/v1.2.0", true)
 			registryManifest := testRegistryManifest("montferret", "archive")
 			registryManifest.Source.Path = sourcePath
@@ -25,8 +26,27 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 			if err := inspector.Resolve(context.Background(), registry); err != nil {
 				t.Fatal(err)
 			}
-			if got := registry.Modules[0].Versions[0].Manifest; got == nil || got.Namespace != "ARCHIVE" {
+			got := registry.Modules[0].Versions[0].Manifest
+			if got == nil || got.Namespace != "ARCHIVE" {
 				t.Fatalf("manifest not resolved: %#v", got)
+			}
+			if got.Repository == nil || got.Repository.URL != "https://fixtures.invalid/source.git" || got.Repository.Directory != sourcePath {
+				t.Fatalf("repository metadata not decoded: %#v", got.Repository)
+			}
+		})
+	}
+}
+
+func TestGitInspectorDoesNotDiscoverLegacyManifestFilenames(t *testing.T) {
+	for _, filename := range []string{"ferret-module.yaml", "ferret.module.yaml", "module.yaml"} {
+		t.Run(filename, func(t *testing.T) {
+			manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.0.0", "Archives.")
+			fixture := newGitFixtureWithManifestFilename(t, "", manifest, filename, "v1.0.0", false)
+			registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
+
+			err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+			if err == nil || !strings.Contains(err.Error(), modulemanifest.ManifestFilename) {
+				t.Fatalf("expected missing %s error, got %v", modulemanifest.ManifestFilename, err)
 			}
 		})
 	}
