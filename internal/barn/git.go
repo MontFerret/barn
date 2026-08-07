@@ -34,6 +34,13 @@ type (
 		Timeout  time.Duration
 	}
 
+	// ResolvedRelease contains the authoritative content at one resolved Git tag.
+	ResolvedRelease struct {
+		Commit        string
+		Manifest      *modulemanifest.Manifest
+		Documentation []byte
+	}
+
 	sourceRepository struct {
 		directory string
 		local     bool
@@ -50,11 +57,6 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 	}
 
 	defer os.RemoveAll(temporaryRoot)
-
-	timeout := inspector.Timeout
-	if timeout == 0 {
-		timeout = 2 * time.Minute
-	}
 
 	repositories := make(map[registryspec.Source]sourceRepository)
 
@@ -82,18 +84,67 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 		}
 
 		for _, version := range registryModule.Versions {
-			operationContext, cancel := context.WithTimeout(ctx, timeout)
-			err := inspectVersion(operationContext, repository.directory, repository.local, temporaryRoot, registryModule, version)
+			operationContext, cancel := context.WithTimeout(ctx, inspector.timeout())
+			release, err := inspectRelease(
+				operationContext,
+				repository.directory,
+				repository.local,
+				temporaryRoot,
+				registryModule.Manifest.Source,
+				registryModule.ID(),
+				version.Record.Version,
+				version.Record.Tag,
+				version.Record.Commit,
+			)
 
 			cancel()
 
 			if err != nil {
 				return err
 			}
+
+			version.Manifest = release.Manifest
+			version.Documentation = append([]byte{}, release.Documentation...)
 		}
 	}
 
 	return nil
+}
+
+// Inspect resolves one release tag and returns its authoritative pinned content.
+func (inspector GitInspector) Inspect(ctx context.Context, source registryspec.Source, moduleID, version, tag string) (*ResolvedRelease, error) {
+	temporaryRoot, err := os.MkdirTemp("", "barn-git-")
+	if err != nil {
+		return nil, fmt.Errorf("create temporary Git root: %w", err)
+	}
+	defer os.RemoveAll(temporaryRoot)
+
+	resolvedURL, local, err := inspector.resolveRepository(ctx, source.Repository)
+	if err != nil {
+		return nil, fmt.Errorf("resolve repository for %s: %w", moduleID, err)
+	}
+
+	directory := filepath.Join(temporaryRoot, "repository.git")
+	if _, err := runGit(ctx, "", local, temporaryRoot, "init", "--bare", directory); err != nil {
+		return nil, err
+	}
+
+	if _, err := runGit(ctx, directory, local, temporaryRoot, "remote", "add", "origin", resolvedURL); err != nil {
+		return nil, err
+	}
+
+	operationContext, cancel := context.WithTimeout(ctx, inspector.timeout())
+	defer cancel()
+
+	return inspectRelease(operationContext, directory, local, temporaryRoot, source, moduleID, version, tag, "")
+}
+
+func (inspector GitInspector) timeout() time.Duration {
+	if inspector.Timeout == 0 {
+		return 2 * time.Minute
+	}
+
+	return inspector.Timeout
 }
 
 func (inspector GitInspector) resolveRepository(ctx context.Context, repository string) (string, bool, error) {
@@ -110,74 +161,75 @@ func (inspector GitInspector) resolveRepository(ctx context.Context, repository 
 	return repository, false, nil
 }
 
-func inspectVersion(ctx context.Context, directory string, local bool, temporaryRoot string, registryModule *Module, version *Version) error {
-	tagRef := "refs/tags/" + version.Record.Tag
+func inspectRelease(ctx context.Context, directory string, local bool, temporaryRoot string, source registryspec.Source, moduleID, version, tag, expectedCommit string) (*ResolvedRelease, error) {
+	tagRef := "refs/tags/" + tag
 	refspec := "+" + tagRef + ":" + tagRef
 
 	if _, err := runGit(ctx, directory, local, temporaryRoot, "fetch", "--force", "--no-tags", "--depth=1", "origin", refspec); err != nil {
-		return fmt.Errorf("fetch tag %q for %s@%s: %w", version.Record.Tag, registryModule.ID(), version.Record.Version, err)
+		return nil, fmt.Errorf("fetch tag %q for %s@%s: %w", tag, moduleID, version, err)
 	}
 
 	resolved, err := runGit(ctx, directory, local, temporaryRoot, "rev-parse", "--verify", tagRef+"^{commit}")
 	if err != nil {
-		return fmt.Errorf("resolve tag %q for %s@%s: %w", version.Record.Tag, registryModule.ID(), version.Record.Version, err)
+		return nil, fmt.Errorf("resolve tag %q for %s@%s: %w", tag, moduleID, version, err)
 	}
 
 	commit := strings.TrimSpace(string(resolved))
-	if commit != version.Record.Commit {
-		return fmt.Errorf("tag %q for %s@%s resolves to %s, not declared commit %s", version.Record.Tag, registryModule.ID(), version.Record.Version, commit, version.Record.Commit)
+	if expectedCommit != "" && commit != expectedCommit {
+		return nil, fmt.Errorf("tag %q for %s@%s resolves to %s, not declared commit %s", tag, moduleID, version, commit, expectedCommit)
 	}
 
-	if _, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-e", version.Record.Commit+"^{commit}"); err != nil {
-		return fmt.Errorf("declared commit %s for %s@%s does not exist: %w", version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+	if _, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-e", commit+"^{commit}"); err != nil {
+		return nil, fmt.Errorf("resolved commit %s for %s@%s does not exist: %w", commit, moduleID, version, err)
 	}
 
 	manifestPath := modulemanifest.ManifestFilename
 	documentationPath := moduleDocumentationFilename
-	if registryModule.Manifest.Source.Path != "" {
-		objectType, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-t", version.Record.Commit+":"+registryModule.Manifest.Source.Path)
+	if source.Path != "" {
+		objectType, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-t", commit+":"+source.Path)
 		if err != nil {
-			return fmt.Errorf("source path %s does not exist at %s for %s@%s: %w", registryModule.Manifest.Source.Path, version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+			return nil, fmt.Errorf("source path %s does not exist at %s for %s@%s: %w", source.Path, commit, moduleID, version, err)
 		}
 
 		if strings.TrimSpace(string(objectType)) != "tree" {
-			return fmt.Errorf("source path %s is not a directory at %s for %s@%s", registryModule.Manifest.Source.Path, version.Record.Commit, registryModule.ID(), version.Record.Version)
+			return nil, fmt.Errorf("source path %s is not a directory at %s for %s@%s", source.Path, commit, moduleID, version)
 		}
 
-		manifestPath = path.Join(registryModule.Manifest.Source.Path, modulemanifest.ManifestFilename)
-		documentationPath = path.Join(registryModule.Manifest.Source.Path, moduleDocumentationFilename)
+		manifestPath = path.Join(source.Path, modulemanifest.ManifestFilename)
+		documentationPath = path.Join(source.Path, moduleDocumentationFilename)
 	}
 
-	data, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+manifestPath)
+	data, err := runGit(ctx, directory, local, temporaryRoot, "show", commit+":"+manifestPath)
 	if err != nil {
-		return fmt.Errorf("read %s at %s for %s@%s: %w", manifestPath, version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+		return nil, fmt.Errorf("read %s at %s for %s@%s: %w", manifestPath, commit, moduleID, version, err)
 	}
 
 	manifest, err := modulemanifest.Parse(data)
 	if err != nil {
-		return fmt.Errorf("validate %s at %s for %s@%s: %w", manifestPath, version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+		return nil, fmt.Errorf("validate %s at %s for %s@%s: %w", manifestPath, commit, moduleID, version, err)
 	}
 
-	if manifest.Name != registryModule.ID() {
-		return fmt.Errorf("source manifest name %q does not match registry module %q", manifest.Name, registryModule.ID())
+	if manifest.Name != moduleID {
+		return nil, fmt.Errorf("source manifest name %q does not match registry module %q", manifest.Name, moduleID)
 	}
 
-	if manifest.Version != version.Record.Version {
-		return fmt.Errorf("source manifest version %q does not match registry version %q", manifest.Version, version.Record.Version)
+	if manifest.Version != version {
+		return nil, fmt.Errorf("source manifest version %q does not match registry version %q", manifest.Version, version)
 	}
-	if err := validateCategoryIDs(registryModule.ID(), version.Record.Version, manifest.Categories); err != nil {
-		return err
+	if err := validateCategoryIDs(moduleID, version, manifest.Categories); err != nil {
+		return nil, err
 	}
 
-	documentation, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+documentationPath)
+	documentation, err := runGit(ctx, directory, local, temporaryRoot, "show", commit+":"+documentationPath)
 	if err != nil {
-		return fmt.Errorf("read %s at %s for %s@%s: %w", documentationPath, version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+		return nil, fmt.Errorf("read %s at %s for %s@%s: %w", documentationPath, commit, moduleID, version, err)
 	}
 
-	version.Manifest = manifest
-	version.Documentation = append([]byte{}, documentation...)
-
-	return nil
+	return &ResolvedRelease{
+		Commit:        commit,
+		Manifest:      manifest,
+		Documentation: append([]byte{}, documentation...),
+	}, nil
 }
 
 func requirePublicRepository(ctx context.Context, repository string) error {

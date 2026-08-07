@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+
+	"github.com/MontFerret/barn/internal/registrydist"
 )
 
 const (
@@ -29,80 +31,18 @@ type (
 		Files map[string][]byte
 	}
 
-	RootIndex struct {
-		SchemaVersion int               `json:"schemaVersion"`
-		Artifacts     map[string]string `json:"artifacts"`
-	}
-
-	ModuleIndex struct {
-		SchemaVersion int                `json:"schemaVersion"`
-		Modules       []ModuleIndexEntry `json:"modules"`
-	}
-
-	ModuleIndexEntry struct {
-		ID     string `json:"id"`
-		Latest string `json:"latest,omitempty"`
-		Href   string `json:"href"`
-	}
-
-	CategoryIndex struct {
-		SchemaVersion int                  `json:"schemaVersion"`
-		Categories    []CategoryIndexEntry `json:"categories"`
-	}
-
-	CategoryIndexEntry struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Count int    `json:"count"`
-		Href  string `json:"href"`
-	}
-
-	CategoryDocument struct {
-		SchemaVersion int                `json:"schemaVersion"`
-		Category      CategorySummary    `json:"category"`
-		Modules       []ModuleIndexEntry `json:"modules"`
-	}
-
-	CategorySummary struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-
-	PluginIndex struct {
-		SchemaVersion int               `json:"schemaVersion"`
-		Plugins       []json.RawMessage `json:"plugins"`
-	}
-
-	ModuleDocument struct {
-		SchemaVersion int                     `json:"schemaVersion"`
-		ID            string                  `json:"id"`
-		Owner         string                  `json:"owner"`
-		Name          string                  `json:"name"`
-		Description   string                  `json:"description"`
-		Latest        string                  `json:"latest,omitempty"`
-		Versions      []ModuleDocumentVersion `json:"versions"`
-	}
-
-	ModuleDocumentVersion struct {
-		Version string `json:"version"`
-		Href    string `json:"href"`
-	}
-
-	VersionDocument struct {
-		SchemaVersion int               `json:"schemaVersion"`
-		ID            string            `json:"id"`
-		Version       string            `json:"version"`
-		Namespace     string            `json:"namespace"`
-		Ferret        string            `json:"ferret,omitempty"`
-		Source        VersionSource     `json:"source"`
-		Content       map[string]string `json:"content"`
-	}
-
-	VersionSource struct {
-		Repository string `json:"repository"`
-		Path       string `json:"path,omitempty"`
-		Commit     string `json:"commit"`
-	}
+	RootIndex             = registrydist.RootIndex
+	ModuleIndex           = registrydist.ModuleIndex
+	ModuleIndexEntry      = registrydist.ModuleIndexEntry
+	CategoryIndex         = registrydist.CategoryIndex
+	CategoryIndexEntry    = registrydist.CategoryIndexEntry
+	CategoryDocument      = registrydist.CategoryDocument
+	CategorySummary       = registrydist.CategorySummary
+	PluginIndex           = registrydist.PluginIndex
+	ModuleDocument        = registrydist.ModuleDocument
+	ModuleDocumentVersion = registrydist.ModuleDocumentVersion
+	VersionDocument       = registrydist.VersionDocument
+	VersionSource         = registrydist.VersionSource
 
 	moduleProjection struct {
 		indexEntry  ModuleIndexEntry
@@ -123,7 +63,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 
 	distribution := &Distribution{Files: make(map[string][]byte)}
 	if err := distribution.addJSON("index.json", RootIndex{
-		SchemaVersion: 1,
+		SchemaVersion: registrydist.SchemaVersion,
 		Artifacts: map[string]string{
 			"categories": "/categories.json",
 			"modules":    "/modules/index.json",
@@ -134,7 +74,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	}
 
 	if err := distribution.addJSON("plugins/index.json", PluginIndex{
-		SchemaVersion: 1,
+		SchemaVersion: registrydist.SchemaVersion,
 		Plugins:       make([]json.RawMessage, 0),
 	}); err != nil {
 		return nil, err
@@ -142,7 +82,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 
 	modules := append([]*Module(nil), registry.Modules...)
 	sort.Slice(modules, func(i, j int) bool { return modules[i].ID() < modules[j].ID() })
-	index := ModuleIndex{SchemaVersion: 1, Modules: make([]ModuleIndexEntry, 0, len(modules))}
+	index := ModuleIndex{SchemaVersion: registrydist.SchemaVersion, Modules: make([]ModuleIndexEntry, 0, len(modules))}
 	categories := make(map[string]*categoryAccumulator)
 
 	for _, registryModule := range modules {
@@ -171,7 +111,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	}
 
 	categoryIndex := CategoryIndex{
-		SchemaVersion: 1,
+		SchemaVersion: registrydist.SchemaVersion,
 		Categories:    make([]CategoryIndexEntry, 0, len(categories)),
 	}
 
@@ -191,7 +131,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 		})
 
 		if err := distribution.addJSON(categoryPath, CategoryDocument{
-			SchemaVersion: 1,
+			SchemaVersion: registrydist.SchemaVersion,
 			Category:      category.summary,
 			Modules:       category.modules,
 		}); err != nil {
@@ -247,7 +187,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 	}
 
 	document := ModuleDocument{
-		SchemaVersion: 1,
+		SchemaVersion: registrydist.SchemaVersion,
 		ID:            registryModule.ID(),
 		Owner:         registryModule.Manifest.Owner,
 		Name:          registryModule.Manifest.Name,
@@ -269,7 +209,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 		}
 
 		versionDocument := VersionDocument{
-			SchemaVersion: 1,
+			SchemaVersion: registrydist.SchemaVersion,
 			ID:            registryModule.ID(),
 			Version:       version.Record.Version,
 			Namespace:     version.Manifest.Namespace,

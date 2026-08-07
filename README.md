@@ -73,6 +73,60 @@ alternative documentation filenames, or rewrite Markdown.
 Barn consumes the Registry v1 and Module Manifest v1 contracts from
 `github.com/MontFerret/specs`; it does not redefine those models.
 
+## Public Go API
+
+Barn exposes two reusable packages for CLIs and other Go tooling:
+
+- `github.com/MontFerret/barn/pkg/registry` consumes the generated static
+  distribution. It discovers artifact links from the root index, so callers do
+  not construct paths inside `dist/`.
+- `github.com/MontFerret/barn/pkg/publish` validates a tagged module release and
+  prepares the Barn source records for a Git pull request. It does not write the
+  records, upload a package, or call a Git hosting API.
+
+The Barn generator remains internal and is the only component that turns the
+reviewed `registry/` source tree into `dist/`. Ferret specs remain the canonical
+owner of module manifests and Registry v1 source-record validation.
+
+Create a registry client with the production host or an injected base URL and
+HTTP client:
+
+```go
+client, err := registry.NewClient()
+if err != nil {
+    return err
+}
+
+modules, err := client.Search(ctx, registry.SearchOptions{
+    Query:    "openai",
+    Category: "ai",
+})
+if err != nil {
+    return err
+}
+```
+
+Prepare a release from the local module directory and an already-pushed tag:
+
+```go
+result, err := publish.Prepare(ctx, publish.Request{
+    Directory: ".",
+    Tag:       "v1.2.3",
+})
+if err != nil {
+    return err
+}
+
+// result.Files contains deterministic Barn-relative source records. The
+// caller decides how to place them in a branch and submit a pull request.
+```
+
+`publish.Prepare` loads `ferret.yaml`, consults the static registry to
+distinguish a new module from a new version, resolves the tag through anonymous
+HTTPS Git, validates the pinned manifest and documentation using the same Git
+inspection path as Barn CI, and returns structured records without modifying
+either repository.
+
 ## Registering a module
 
 Module registration is currently a manual, pull-request-based process. Barn
