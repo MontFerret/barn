@@ -61,6 +61,9 @@ jobs:
       - name: Generate distribution
         run: make generate
 
+      - name: Verify deterministic distribution
+        run: make verify
+
   deploy:
     name: Deploy distribution
     if: github.ref == 'refs/heads/main'

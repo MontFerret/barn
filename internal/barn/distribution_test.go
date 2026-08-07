@@ -1,0 +1,292 @@
+package barn
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	modulemanifest "github.com/MontFerret/specs/pkg/module"
+)
+
+func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
+	const (
+		sourcePath    = "modules/archive"
+		documentation = "# Archive\n\nPinned documentation.\n"
+	)
+
+	sourceManifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.2.0", "Work with archives.")
+	sourceManifest.Repository.Directory = sourcePath
+	fixture := newGitFixtureWithDocumentation(t, sourcePath, sourceManifest, "archive/v1.2.0", true, []byte(documentation))
+	registryManifest := testRegistryManifest("montferret", "archive")
+	registryManifest.Source.Path = sourcePath
+	root := t.TempDir()
+	writeRegistryRecord(t, root, "montferret", "archive", registryManifest, testVersion("1.2.0", "archive/v1.2.0", fixture.commit))
+
+	registry, err := Validate(context.Background(), root, GitInspector{Resolver: fixtureResolver(fixture.directory)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	distribution, err := GenerateDistribution(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantPaths := []string{
+		"index.json",
+		"modules/index.json",
+		"modules/montferret/archive/index.json",
+		"modules/montferret/archive/versions/1.2.0/docs.md",
+		"modules/montferret/archive/versions/1.2.0/index.json",
+		"plugins/index.json",
+	}
+	if got := sortedDistributionPaths(distribution.Files); !reflect.DeepEqual(got, wantPaths) {
+		t.Fatalf("distribution paths differ:\ngot  %v\nwant %v", got, wantPaths)
+	}
+
+	var rootIndex RootIndex
+	decodeDistributionJSON(t, distribution, "index.json", &rootIndex)
+	if rootIndex.SchemaVersion != 1 || !reflect.DeepEqual(rootIndex.Artifacts, map[string]string{
+		"modules": "/modules/index.json",
+		"plugins": "/plugins/index.json",
+	}) {
+		t.Fatalf("unexpected root index: %#v", rootIndex)
+	}
+
+	var moduleIndex ModuleIndex
+	decodeDistributionJSON(t, distribution, "modules/index.json", &moduleIndex)
+	wantIndexEntry := ModuleIndexEntry{
+		ID:     "montferret/archive",
+		Latest: "1.2.0",
+		Href:   "/modules/montferret/archive/index.json",
+	}
+	if len(moduleIndex.Modules) != 1 || moduleIndex.Modules[0] != wantIndexEntry {
+		t.Fatalf("unexpected module index: %#v", moduleIndex)
+	}
+	if data := string(distribution.Files["modules/index.json"]); strings.Contains(data, "description") || strings.Contains(data, "namespace") || strings.Contains(data, "source") || strings.Contains(data, "versions") {
+		t.Fatalf("module collection embeds detail metadata:\n%s", data)
+	}
+
+	var moduleDocument ModuleDocument
+	decodeDistributionJSON(t, distribution, "modules/montferret/archive/index.json", &moduleDocument)
+	if moduleDocument.ID != "montferret/archive" || moduleDocument.Owner != "montferret" || moduleDocument.Name != "archive" || moduleDocument.Description != "Work with archives." || moduleDocument.Latest != "1.2.0" {
+		t.Fatalf("unexpected module document: %#v", moduleDocument)
+	}
+	if !reflect.DeepEqual(moduleDocument.Versions, []ModuleDocumentVersion{{
+		Version: "1.2.0",
+		Href:    "/modules/montferret/archive/versions/1.2.0/index.json",
+	}}) {
+		t.Fatalf("unexpected module versions: %#v", moduleDocument.Versions)
+	}
+
+	versionPath := "modules/montferret/archive/versions/1.2.0/index.json"
+	var versionDocument VersionDocument
+	decodeDistributionJSON(t, distribution, versionPath, &versionDocument)
+	if versionDocument.ID != "montferret/archive" || versionDocument.Version != "1.2.0" || versionDocument.Namespace != "ARCHIVE" {
+		t.Fatalf("unexpected version identity: %#v", versionDocument)
+	}
+	wantSource := VersionSource{
+		Repository: "https://fixtures.invalid/source.git",
+		Path:       sourcePath,
+		Commit:     fixture.commit,
+	}
+	if versionDocument.Source != wantSource || !reflect.DeepEqual(versionDocument.Content, map[string]string{"documentation": "./docs.md"}) {
+		t.Fatalf("unexpected version source/content: %#v", versionDocument)
+	}
+	if got := string(distribution.Files["modules/montferret/archive/versions/1.2.0/docs.md"]); got != documentation {
+		t.Fatalf("documentation differs:\n%s", got)
+	}
+	if data := string(distribution.Files[versionPath]); strings.Contains(data, "archive/v1.2.0") || strings.Contains(data, sourceManifest.Documentation) || strings.Contains(data, documentation) {
+		t.Fatalf("version document leaks publication or documentation data:\n%s", data)
+	}
+}
+
+func TestGenerateDistributionDeterministicOrderingAndLatest(t *testing.T) {
+	archive := distributionTestModule("montferret", "archive", []distributionTestVersion{
+		{version: "1.1.0-beta.1", namespace: "ARCHIVE_BETA", description: "Beta.", ferret: ">=2.2.0-beta.1"},
+		{version: "1.0.0", namespace: "ARCHIVE", description: "Stable.", ferret: ">=2.1.0"},
+		{version: "1.0.0+build.2", namespace: "ARCHIVE_BUILD", description: "Build."},
+	})
+	browser := distributionTestModule("acme", "browser-tools", []distributionTestVersion{{
+		version: "2.0.0-beta.2", namespace: "BROWSER", description: "Browser beta.", ferret: "^2.0.0",
+	}})
+	registry := &Registry{Modules: []*Module{archive, browser}}
+	first, err := GenerateDistribution(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := GenerateDistribution(registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first.Files, second.Files) {
+		t.Fatal("distribution generation is not deterministic")
+	}
+
+	var index ModuleIndex
+	decodeDistributionJSON(t, first, "modules/index.json", &index)
+	if len(index.Modules) != 2 || index.Modules[0].ID != "acme/browser-tools" || index.Modules[1].ID != "montferret/archive" {
+		t.Fatalf("modules not sorted: %#v", index.Modules)
+	}
+	if index.Modules[0].Latest != "" || index.Modules[1].Latest != "1.0.0" {
+		t.Fatalf("latest selection differs: %#v", index.Modules)
+	}
+
+	var browserDocument ModuleDocument
+	decodeDistributionJSON(t, first, "modules/acme/browser-tools/index.json", &browserDocument)
+	if browserDocument.Latest != "" || browserDocument.Description != "Browser beta." {
+		t.Fatalf("prerelease-only metadata differs: %#v", browserDocument)
+	}
+
+	var archiveDocument ModuleDocument
+	decodeDistributionJSON(t, first, "modules/montferret/archive/index.json", &archiveDocument)
+	if archiveDocument.Latest != "1.0.0" || archiveDocument.Description != "Stable." {
+		t.Fatalf("stable metadata differs: %#v", archiveDocument)
+	}
+	wantVersions := []string{"1.1.0-beta.1", "1.0.0", "1.0.0+build.2"}
+	for index, want := range wantVersions {
+		if archiveDocument.Versions[index].Version != want {
+			t.Fatalf("version order differs: %#v", archiveDocument.Versions)
+		}
+	}
+
+	var beta VersionDocument
+	decodeDistributionJSON(t, first, "modules/montferret/archive/versions/1.1.0-beta.1/index.json", &beta)
+	if beta.Namespace != "ARCHIVE_BETA" || beta.Ferret != ">=2.2.0-beta.1" || beta.Content["documentation"] != "./docs.md" {
+		t.Fatalf("version metadata differs: %#v", beta)
+	}
+	buildData := string(first.Files["modules/montferret/archive/versions/1.0.0+build.2/index.json"])
+	if strings.Contains(buildData, "\"ferret\"") || strings.Contains(buildData, "\"path\"") {
+		t.Fatalf("optional empty version fields were emitted:\n%s", buildData)
+	}
+}
+
+func TestDistributionRootAndPluginIndexes(t *testing.T) {
+	distribution, err := GenerateDistribution(&Registry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantRoot := "{\n  \"schemaVersion\": 1,\n  \"artifacts\": {\n    \"modules\": \"/modules/index.json\",\n    \"plugins\": \"/plugins/index.json\"\n  }\n}\n"
+	if got := string(distribution.Files["index.json"]); got != wantRoot {
+		t.Fatalf("root index differs:\n%s", got)
+	}
+	wantModules := "{\n  \"schemaVersion\": 1,\n  \"modules\": []\n}\n"
+	if got := string(distribution.Files["modules/index.json"]); got != wantModules {
+		t.Fatalf("module index differs:\n%s", got)
+	}
+	wantPlugins := "{\n  \"schemaVersion\": 1,\n  \"plugins\": []\n}\n"
+	if got := string(distribution.Files["plugins/index.json"]); got != wantPlugins {
+		t.Fatalf("plugin index differs:\n%s", got)
+	}
+}
+
+func TestDistributionWriteReplacementAndVerification(t *testing.T) {
+	root := t.TempDir()
+	distribution, err := GenerateDistribution(&Registry{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist") {
+		t.Fatalf("expected missing distribution error, got %v", err)
+	}
+	if err := WriteDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "catalog")); !os.IsNotExist(err) {
+		t.Fatalf("legacy catalog directory was created: %v", err)
+	}
+	pluginIndexPath := filepath.Join(root, "dist", "plugins", "index.json")
+	if err := os.Remove(pluginIndexPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/plugins/index.json is missing") {
+		t.Fatalf("expected missing file error, got %v", err)
+	}
+	if err := WriteDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+
+	rootIndexPath := filepath.Join(root, "dist", "index.json")
+	if err := os.WriteFile(rootIndexPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/index.json is stale") {
+		t.Fatalf("expected stale distribution error, got %v", err)
+	}
+
+	if err := WriteDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+	extraPath := filepath.Join(root, "dist", "modules", "stale.json")
+	if err := os.WriteFile(extraPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/modules/stale.json is unexpected") {
+		t.Fatalf("expected unexpected file error, got %v", err)
+	}
+
+	if err := WriteDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(extraPath); !os.IsNotExist(err) {
+		t.Fatalf("stale output survived full replacement: %v", err)
+	}
+	if err := VerifyDistribution(root, distribution); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGenerateDistributionRequiresResolvedDocumentation(t *testing.T) {
+	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+	}})
+	module.Versions[0].Documentation = nil
+
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	if err == nil || !strings.Contains(err.Error(), "documentation has not been resolved") {
+		t.Fatalf("expected unresolved documentation error, got %v", err)
+	}
+}
+
+type distributionTestVersion struct {
+	version     string
+	namespace   string
+	description string
+	ferret      string
+}
+
+func distributionTestModule(owner, name string, fixtures []distributionTestVersion) *Module {
+	versions := make([]*Version, 0, len(fixtures))
+	for index, fixture := range fixtures {
+		manifest := testModuleManifest(owner+"/"+name, fixture.namespace, fixture.version, fixture.description)
+		if fixture.ferret != "" {
+			manifest.Compatibility = &modulemanifest.Compatibility{Ferret: fixture.ferret}
+		}
+		versions = append(versions, &Version{
+			Record:        testVersion(fixture.version, "v"+fixture.version, testCommit[:39]+string(rune('0'+index))),
+			Manifest:      manifest,
+			Documentation: []byte("# " + fixture.version + "\n"),
+		})
+	}
+
+	return &Module{Manifest: testRegistryManifest(owner, name), Versions: versions}
+}
+
+func decodeDistributionJSON(t *testing.T, distribution *Distribution, relativePath string, target any) {
+	t.Helper()
+	data, exists := distribution.Files[relativePath]
+	if !exists {
+		t.Fatalf("distribution file %s is missing", relativePath)
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		t.Fatalf("decode %s: %v", relativePath, err)
+	}
+}

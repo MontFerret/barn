@@ -1,0 +1,368 @@
+package barn
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/Masterminds/semver/v3"
+)
+
+const distributionPath = "dist"
+
+type (
+	// Distribution is the complete generated public registry representation.
+	// File paths are slash-separated and relative to dist/.
+	Distribution struct {
+		Files map[string][]byte
+	}
+
+	RootIndex struct {
+		SchemaVersion int               `json:"schemaVersion"`
+		Artifacts     map[string]string `json:"artifacts"`
+	}
+
+	ModuleIndex struct {
+		SchemaVersion int                `json:"schemaVersion"`
+		Modules       []ModuleIndexEntry `json:"modules"`
+	}
+
+	ModuleIndexEntry struct {
+		ID     string `json:"id"`
+		Latest string `json:"latest,omitempty"`
+		Href   string `json:"href"`
+	}
+
+	PluginIndex struct {
+		SchemaVersion int               `json:"schemaVersion"`
+		Plugins       []json.RawMessage `json:"plugins"`
+	}
+
+	ModuleDocument struct {
+		SchemaVersion int                     `json:"schemaVersion"`
+		ID            string                  `json:"id"`
+		Owner         string                  `json:"owner"`
+		Name          string                  `json:"name"`
+		Description   string                  `json:"description"`
+		Latest        string                  `json:"latest,omitempty"`
+		Versions      []ModuleDocumentVersion `json:"versions"`
+	}
+
+	ModuleDocumentVersion struct {
+		Version string `json:"version"`
+		Href    string `json:"href"`
+	}
+
+	VersionDocument struct {
+		SchemaVersion int               `json:"schemaVersion"`
+		ID            string            `json:"id"`
+		Version       string            `json:"version"`
+		Namespace     string            `json:"namespace"`
+		Ferret        string            `json:"ferret,omitempty"`
+		Source        VersionSource     `json:"source"`
+		Content       map[string]string `json:"content"`
+	}
+
+	VersionSource struct {
+		Repository string `json:"repository"`
+		Path       string `json:"path,omitempty"`
+		Commit     string `json:"commit"`
+	}
+)
+
+// GenerateDistribution projects a resolved Registry into the complete public dist/ tree.
+func GenerateDistribution(registry *Registry) (*Distribution, error) {
+	if registry == nil {
+		return nil, fmt.Errorf("registry is nil")
+	}
+
+	distribution := &Distribution{Files: make(map[string][]byte)}
+	if err := distribution.addJSON("index.json", RootIndex{
+		SchemaVersion: 1,
+		Artifacts: map[string]string{
+			"modules": "/modules/index.json",
+			"plugins": "/plugins/index.json",
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := distribution.addJSON("plugins/index.json", PluginIndex{
+		SchemaVersion: 1,
+		Plugins:       make([]json.RawMessage, 0),
+	}); err != nil {
+		return nil, err
+	}
+
+	modules := append([]*Module(nil), registry.Modules...)
+	sort.Slice(modules, func(i, j int) bool { return modules[i].ID() < modules[j].ID() })
+	index := ModuleIndex{SchemaVersion: 1, Modules: make([]ModuleIndexEntry, 0, len(modules))}
+
+	for _, registryModule := range modules {
+		if err := addModuleToDistribution(distribution, &index, registryModule); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := distribution.addJSON("modules/index.json", index); err != nil {
+		return nil, err
+	}
+
+	return distribution, nil
+}
+
+func addModuleToDistribution(distribution *Distribution, index *ModuleIndex, registryModule *Module) error {
+	versions := append([]*Version(nil), registryModule.Versions...)
+	if len(versions) == 0 {
+		return fmt.Errorf("module %s has no versions", registryModule.ID())
+	}
+	if err := sortVersions(versions); err != nil {
+		return fmt.Errorf("sort versions for %s: %w", registryModule.ID(), err)
+	}
+
+	metadataVersion := versions[0]
+	latest := ""
+	for _, version := range versions {
+		if version.Manifest == nil {
+			return fmt.Errorf("module %s@%s has not been resolved", registryModule.ID(), version.Record.Version)
+		}
+		if version.Documentation == nil {
+			return fmt.Errorf("module %s@%s documentation has not been resolved", registryModule.ID(), version.Record.Version)
+		}
+
+		parsed, _ := semver.StrictNewVersion(version.Record.Version)
+		if latest == "" && parsed.Prerelease() == "" {
+			latest = version.Record.Version
+			metadataVersion = version
+		}
+	}
+
+	modulePath := path.Join("modules", registryModule.Manifest.Owner, registryModule.Manifest.Name)
+	index.Modules = append(index.Modules, ModuleIndexEntry{
+		ID:     registryModule.ID(),
+		Latest: latest,
+		Href:   "/" + path.Join(modulePath, "index.json"),
+	})
+
+	document := ModuleDocument{
+		SchemaVersion: 1,
+		ID:            registryModule.ID(),
+		Owner:         registryModule.Manifest.Owner,
+		Name:          registryModule.Manifest.Name,
+		Description:   metadataVersion.Manifest.Description,
+		Latest:        latest,
+		Versions:      make([]ModuleDocumentVersion, 0, len(versions)),
+	}
+
+	for _, version := range versions {
+		versionPath := path.Join(modulePath, "versions", version.Record.Version)
+		document.Versions = append(document.Versions, ModuleDocumentVersion{
+			Version: version.Record.Version,
+			Href:    "/" + path.Join(versionPath, "index.json"),
+		})
+
+		ferret := ""
+		if version.Manifest.Compatibility != nil {
+			ferret = version.Manifest.Compatibility.Ferret
+		}
+
+		versionDocument := VersionDocument{
+			SchemaVersion: 1,
+			ID:            registryModule.ID(),
+			Version:       version.Record.Version,
+			Namespace:     version.Manifest.Namespace,
+			Ferret:        ferret,
+			Source: VersionSource{
+				Repository: registryModule.Manifest.Source.Repository,
+				Path:       registryModule.Manifest.Source.Path,
+				Commit:     version.Record.Commit,
+			},
+			Content: map[string]string{"documentation": "./docs.md"},
+		}
+
+		if err := distribution.addJSON(path.Join(versionPath, "index.json"), versionDocument); err != nil {
+			return err
+		}
+		distribution.Files[path.Join(versionPath, "docs.md")] = bytes.Clone(version.Documentation)
+	}
+
+	return distribution.addJSON(path.Join(modulePath, "index.json"), document)
+}
+
+func (distribution *Distribution) addJSON(relativePath string, document any) error {
+	data, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode %s: %w", relativePath, err)
+	}
+
+	distribution.Files[relativePath] = append(data, '\n')
+
+	return nil
+}
+
+func sortVersions(versions []*Version) error {
+	parsed := make(map[*Version]*semver.Version, len(versions))
+
+	for _, version := range versions {
+		value, err := semver.StrictNewVersion(version.Record.Version)
+		if err != nil {
+			return err
+		}
+		parsed[version] = value
+	}
+
+	sort.Slice(versions, func(i, j int) bool {
+		comparison := parsed[versions[i]].Compare(parsed[versions[j]])
+		if comparison != 0 {
+			return comparison > 0
+		}
+
+		return versions[i].Record.Version < versions[j].Record.Version
+	})
+
+	return nil
+}
+
+// WriteDistribution replaces dist/ with the complete generated distribution.
+func WriteDistribution(root string, distribution *Distribution) error {
+	if distribution == nil {
+		return fmt.Errorf("distribution is nil")
+	}
+
+	staging, err := os.MkdirTemp(root, ".dist-staging-")
+	if err != nil {
+		return fmt.Errorf("create distribution staging directory: %w", err)
+	}
+	defer os.RemoveAll(staging)
+
+	if err := os.Chmod(staging, 0o755); err != nil {
+		return fmt.Errorf("set distribution staging permissions: %w", err)
+	}
+
+	paths := sortedDistributionPaths(distribution.Files)
+	for _, relativePath := range paths {
+		if err := validateDistributionPath(relativePath); err != nil {
+			return err
+		}
+
+		filePath := filepath.Join(staging, filepath.FromSlash(relativePath))
+		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+			return fmt.Errorf("create directory for %s: %w", relativePath, err)
+		}
+		if err := os.WriteFile(filePath, distribution.Files[relativePath], 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", relativePath, err)
+		}
+	}
+
+	destination := filepath.Join(root, distributionPath)
+	if _, err := os.Lstat(destination); os.IsNotExist(err) {
+		if err := os.Rename(staging, destination); err != nil {
+			return fmt.Errorf("install distribution: %w", err)
+		}
+
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("inspect existing distribution: %w", err)
+	}
+
+	backupRoot, err := os.MkdirTemp(root, ".dist-replacement-")
+	if err != nil {
+		return fmt.Errorf("create distribution replacement directory: %w", err)
+	}
+	defer os.RemoveAll(backupRoot)
+
+	backup := filepath.Join(backupRoot, "previous")
+	if err := os.Rename(destination, backup); err != nil {
+		return fmt.Errorf("move existing distribution aside: %w", err)
+	}
+	if err := os.Rename(staging, destination); err != nil {
+		if restoreErr := os.Rename(backup, destination); restoreErr != nil {
+			return fmt.Errorf("install distribution: %w (restore previous distribution: %v)", err, restoreErr)
+		}
+
+		return fmt.Errorf("install distribution: %w", err)
+	}
+
+	if err := os.RemoveAll(backupRoot); err != nil {
+		return fmt.Errorf("remove previous distribution: %w", err)
+	}
+
+	return nil
+}
+
+// VerifyDistribution compares the complete generated dist/ tree with the expected distribution.
+func VerifyDistribution(root string, distribution *Distribution) error {
+	if distribution == nil {
+		return fmt.Errorf("distribution is nil")
+	}
+
+	destination := filepath.Join(root, distributionPath)
+	actual := make(map[string][]byte)
+	err := filepath.WalkDir(destination, func(filePath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if filePath == destination || entry.IsDir() {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 || !entry.Type().IsRegular() {
+			return fmt.Errorf("generated %s is not a regular file", filepath.ToSlash(filePath))
+		}
+
+		relativePath, err := filepath.Rel(destination, filePath)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+		actual[filepath.ToSlash(relativePath)] = data
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("read generated distribution: %w", err)
+	}
+
+	for _, relativePath := range sortedDistributionPaths(distribution.Files) {
+		current, exists := actual[relativePath]
+		if !exists {
+			return fmt.Errorf("dist/%s is missing; run barn generate", relativePath)
+		}
+		if !bytes.Equal(current, distribution.Files[relativePath]) {
+			return fmt.Errorf("dist/%s is stale; run barn generate", relativePath)
+		}
+		delete(actual, relativePath)
+	}
+
+	if len(actual) != 0 {
+		return fmt.Errorf("dist/%s is unexpected; run barn generate", sortedDistributionPaths(actual)[0])
+	}
+
+	return nil
+}
+
+func sortedDistributionPaths[T any](files map[string]T) []string {
+	paths := make([]string, 0, len(files))
+	for relativePath := range files {
+		paths = append(paths, relativePath)
+	}
+	sort.Strings(paths)
+
+	return paths
+}
+
+func validateDistributionPath(relativePath string) error {
+	if relativePath == "" || strings.Contains(relativePath, "\\") || strings.HasPrefix(relativePath, "/") || path.Clean(relativePath) != relativePath || relativePath == "." || relativePath == ".." || strings.HasPrefix(relativePath, "../") {
+		return fmt.Errorf("invalid distribution path %q", relativePath)
+	}
+
+	return nil
+}

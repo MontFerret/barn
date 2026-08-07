@@ -40,6 +40,8 @@ type (
 	}
 )
 
+const moduleDocumentationFilename = "README.md"
+
 // Resolve validates remote release identities and attaches authoritative manifests.
 func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) error {
 	temporaryRoot, err := os.MkdirTemp("", "barn-git-")
@@ -131,6 +133,7 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 	}
 
 	manifestPath := modulemanifest.ManifestFilename
+	documentationPath := moduleDocumentationFilename
 	if registryModule.Manifest.Source.Path != "" {
 		objectType, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-t", version.Record.Commit+":"+registryModule.Manifest.Source.Path)
 		if err != nil {
@@ -142,6 +145,7 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 		}
 
 		manifestPath = path.Join(registryModule.Manifest.Source.Path, modulemanifest.ManifestFilename)
+		documentationPath = path.Join(registryModule.Manifest.Source.Path, moduleDocumentationFilename)
 	}
 
 	data, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+manifestPath)
@@ -162,7 +166,13 @@ func inspectVersion(ctx context.Context, directory string, local bool, temporary
 		return fmt.Errorf("source manifest version %q does not match registry version %q", manifest.Version, version.Record.Version)
 	}
 
+	documentation, err := runGit(ctx, directory, local, temporaryRoot, "show", version.Record.Commit+":"+documentationPath)
+	if err != nil {
+		return fmt.Errorf("read %s at %s for %s@%s: %w", documentationPath, version.Record.Commit, registryModule.ID(), version.Record.Version, err)
+	}
+
 	version.Manifest = manifest
+	version.Documentation = append([]byte{}, documentation...)
 
 	return nil
 }

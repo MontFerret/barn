@@ -14,7 +14,10 @@ import (
 	registryspec "github.com/MontFerret/specs/pkg/registry"
 )
 
-const testCommit = "0123456789abcdef0123456789abcdef01234567"
+const (
+	testCommit        = "0123456789abcdef0123456789abcdef01234567"
+	testDocumentation = "# Fixture documentation\n"
+)
 
 func writeRegistryRecord(t *testing.T, root, ownerDirectory, moduleDirectory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
 	t.Helper()
@@ -102,10 +105,28 @@ type gitFixture struct {
 func newGitFixture(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, tag string, annotated bool) gitFixture {
 	t.Helper()
 
-	return newGitFixtureWithManifestFilename(t, sourcePath, manifest, modulemanifest.ManifestFilename, tag, annotated)
+	return newGitFixtureWithDocumentation(t, sourcePath, manifest, tag, annotated, []byte(testDocumentation))
+}
+
+func newGitFixtureWithDocumentation(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, tag string, annotated bool, documentation []byte) gitFixture {
+	t.Helper()
+
+	return newGitFixtureRepository(t, sourcePath, manifest, modulemanifest.ManifestFilename, tag, annotated, documentation)
+}
+
+func newGitFixtureWithoutDocumentation(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, tag string, annotated bool) gitFixture {
+	t.Helper()
+
+	return newGitFixtureRepository(t, sourcePath, manifest, modulemanifest.ManifestFilename, tag, annotated, nil)
 }
 
 func newGitFixtureWithManifestFilename(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, manifestFilename, tag string, annotated bool) gitFixture {
+	t.Helper()
+
+	return newGitFixtureRepository(t, sourcePath, manifest, manifestFilename, tag, annotated, []byte(testDocumentation))
+}
+
+func newGitFixtureRepository(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, manifestFilename, tag string, annotated bool, documentation []byte) gitFixture {
 	t.Helper()
 	directory := t.TempDir()
 	runTestGit(t, directory, "init")
@@ -120,8 +141,9 @@ func newGitFixtureWithManifestFilename(t *testing.T, sourcePath string, manifest
 	}
 	if manifest != nil {
 		writeModuleYAML(t, filepath.Join(manifestDirectory, manifestFilename), manifest)
-	} else {
-		if err := os.WriteFile(filepath.Join(directory, "README.md"), []byte("fixture\n"), 0o644); err != nil {
+	}
+	if documentation != nil {
+		if err := os.WriteFile(filepath.Join(manifestDirectory, moduleDocumentationFilename), documentation, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}

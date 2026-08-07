@@ -42,10 +42,10 @@ mod-check: ## Check module metadata without changing files.
 validate: ## Validate the complete registry and pinned releases.
 	$(GO) run ./cmd/barn validate
 
-generate: ## Generate artifact-specific indexes under dist/.
+generate: ## Generate the complete public distribution under dist/.
 	$(GO) run ./cmd/barn generate
 
-verify: ## Verify generated dist/ indexes are current.
+verify: ## Verify the complete generated dist/ tree is current.
 	$(GO) run ./cmd/barn verify
 
 check-immutable: ## Check published records against BASE.

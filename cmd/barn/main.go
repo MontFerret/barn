@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -60,26 +59,14 @@ func run(ctx context.Context, arguments []string) error {
 		return nil
 	}
 
-	moduleCatalog, err := barn.GenerateModuleCatalog(registry)
-	if err != nil {
-		return err
-	}
-
-	pluginCatalog, err := barn.GeneratePluginCatalog()
+	distribution, err := barn.GenerateDistribution(registry)
 	if err != nil {
 		return err
 	}
 
 	if command == "generate" {
-		if err := barn.WriteModuleCatalog(*root, moduleCatalog); err != nil {
-			return err
-		}
-
-		return barn.WritePluginCatalog(*root, pluginCatalog)
+		return barn.WriteDistribution(*root, distribution)
 	}
 
-	return errors.Join(
-		barn.VerifyModuleCatalog(*root, moduleCatalog),
-		barn.VerifyPluginCatalog(*root, pluginCatalog),
-	)
+	return barn.VerifyDistribution(*root, distribution)
 }

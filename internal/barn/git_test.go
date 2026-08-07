@@ -33,7 +33,21 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 			if got.Repository == nil || got.Repository.URL != "https://fixtures.invalid/source.git" || got.Repository.Directory != sourcePath {
 				t.Fatalf("repository metadata not decoded: %#v", got.Repository)
 			}
+			if got := string(registry.Modules[0].Versions[0].Documentation); got != testDocumentation {
+				t.Fatalf("documentation not resolved: %q", got)
+			}
 		})
+	}
+}
+
+func TestGitInspectorRequiresPinnedDocumentation(t *testing.T) {
+	manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.0.0", "Archives.")
+	fixture := newGitFixtureWithoutDocumentation(t, "", manifest, "v1.0.0", false)
+	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
+
+	err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+	if err == nil || !strings.Contains(err.Error(), moduleDocumentationFilename) {
+		t.Fatalf("expected missing %s error, got %v", moduleDocumentationFilename, err)
 	}
 }
 

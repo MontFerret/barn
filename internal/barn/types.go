@@ -1,4 +1,4 @@
-// Package barn validates Ferret Registry source state and generates its catalog.
+// Package barn validates Ferret Registry source state and generates its public distribution.
 package barn
 
 import (
@@ -20,11 +20,12 @@ type (
 		Versions  []*Version
 	}
 
-	// Version contains one registry version record and its authoritative source manifest.
+	// Version contains one registry version record and its authoritative pinned source content.
 	Version struct {
-		Path     string
-		Record   *registryspec.VersionRecord
-		Manifest *modulemanifest.Manifest
+		Path          string
+		Record        *registryspec.VersionRecord
+		Manifest      *modulemanifest.Manifest
+		Documentation []byte
 	}
 )
 
