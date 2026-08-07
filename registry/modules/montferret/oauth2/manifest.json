@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schemas.ferretlang.org/registry/module/v1.json",
+  "owner": "montferret",
+  "name": "oauth2",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/security/oauth2"
+  }
+}
