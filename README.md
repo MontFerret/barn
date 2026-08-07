@@ -106,6 +106,10 @@ if err != nil {
 }
 ```
 
+Search queries are case-insensitive substring matches against canonical module
+IDs and descriptions. When `Category` is set, text matching is limited to the
+modules in that category.
+
 Prepare a release from the local module directory and an already-pushed tag:
 
 ```go

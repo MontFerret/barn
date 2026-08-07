@@ -8,7 +8,10 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestClientReadsAndSearchesStaticDistribution(t *testing.T) {
@@ -94,12 +97,226 @@ func TestClientReadsAndSearchesStaticDistribution(t *testing.T) {
 		t.Fatalf("unexpected text results: %#v", results)
 	}
 
+	results, err = client.Search(context.Background(), SearchOptions{Query: " AI "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(results, []ModuleSummary{{ID: "acme/browser"}}) {
+		t.Fatalf("unexpected description results: %#v", results)
+	}
+
+	results, err = client.Search(context.Background(), SearchOptions{Query: "support", Category: "files"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDescriptionResults := []ModuleSummary{
+		{ID: "acme/browser"},
+		{ID: "montferret/archive", Latest: "1.0.0"},
+	}
+	if !reflect.DeepEqual(results, wantDescriptionResults) {
+		t.Fatalf("unexpected category description results: %#v", results)
+	}
+
 	results, err = client.Search(context.Background(), SearchOptions{Category: "unknown"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if results == nil || len(results) != 0 {
 		t.Fatalf("unknown category should return an empty non-nil result: %#v", results)
+	}
+}
+
+func TestClientSearchAvoidsUnneededDescriptionRequests(t *testing.T) {
+	var detailRequests atomic.Int32
+	server := newSingleModuleSearchServer(t, func(response http.ResponseWriter, _ *http.Request) {
+		detailRequests.Add(1)
+		http.Error(response, "unexpected detail request", http.StatusInternalServerError)
+	})
+	defer server.Close()
+
+	client, err := NewClient(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := client.Search(context.Background(), SearchOptions{Query: "browser"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(results, []ModuleSummary{{ID: "acme/browser"}}) || detailRequests.Load() != 0 {
+		t.Fatalf("ID search loaded module details: results=%#v requests=%d", results, detailRequests.Load())
+	}
+
+	results, err = client.Search(context.Background(), SearchOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(results, []ModuleSummary{{ID: "acme/browser"}}) || detailRequests.Load() != 0 {
+		t.Fatalf("empty search loaded module details: results=%#v requests=%d", results, detailRequests.Load())
+	}
+}
+
+func TestClientSearchDescriptionRequestErrorsAndCancellation(t *testing.T) {
+	t.Run("HTTP error", func(t *testing.T) {
+		server := newSingleModuleSearchServer(t, func(response http.ResponseWriter, _ *http.Request) {
+			http.Error(response, "unavailable", http.StatusServiceUnavailable)
+		})
+		defer server.Close()
+
+		client, err := NewClient(WithBaseURL(server.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = client.Search(context.Background(), SearchOptions{Query: "needle"})
+		var httpError *HTTPError
+		if !errors.As(err, &httpError) || httpError.StatusCode != http.StatusServiceUnavailable {
+			t.Fatalf("expected typed HTTP error, got %v", err)
+		}
+	})
+
+	t.Run("cancellation", func(t *testing.T) {
+		started := make(chan struct{}, 1)
+		server := newSingleModuleSearchServer(t, func(_ http.ResponseWriter, request *http.Request) {
+			started <- struct{}{}
+			<-request.Context().Done()
+		})
+		defer server.Close()
+
+		client, err := NewClient(WithBaseURL(server.URL))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() {
+			_, searchErr := client.Search(ctx, SearchOptions{Query: "needle"})
+			done <- searchErr
+		}()
+
+		select {
+		case <-started:
+			cancel()
+		case <-time.After(5 * time.Second):
+			cancel()
+			t.Fatal("description request did not start")
+		}
+
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("expected context cancellation, got %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("canceled search did not return")
+		}
+	})
+}
+
+func TestClientSearchBoundsConcurrentDescriptionRequests(t *testing.T) {
+	const candidates = maxSearchConcurrent + 2
+
+	var entries strings.Builder
+	documents := make(map[string]string, candidates)
+	for index := range candidates {
+		if index > 0 {
+			entries.WriteByte(',')
+		}
+
+		id := fmt.Sprintf("acme/module-%02d", index)
+		href := fmt.Sprintf("/records/module-%02d.json", index)
+		fmt.Fprintf(&entries, `{"id":%q,"href":%q}`, id, href)
+		documents[href] = fmt.Sprintf(`{
+  "schemaVersion": 1,
+  "id": %q,
+  "owner": "acme",
+  "name": %q,
+  "description": "Needle support.",
+  "versions": [{"version":"1.0.0","href":"./1.0.0.json"}]
+}`, id, fmt.Sprintf("module-%02d", index))
+	}
+
+	started := make(chan struct{}, candidates)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(unblock)
+
+	var active atomic.Int32
+	var maximum atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/index.json":
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"modules":"/modules.json"}}`))
+		case "/modules.json":
+			_, _ = fmt.Fprintf(response, `{"schemaVersion":1,"modules":[%s]}`, entries.String())
+		default:
+			document, exists := documents[request.URL.Path]
+			if !exists {
+				http.NotFound(response, request)
+
+				return
+			}
+
+			current := active.Add(1)
+			for {
+				observed := maximum.Load()
+				if current <= observed || maximum.CompareAndSwap(observed, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+
+			select {
+			case <-release:
+			case <-request.Context().Done():
+			}
+			active.Add(-1)
+			_, _ = response.Write([]byte(document))
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type searchResult struct {
+		modules []ModuleSummary
+		err     error
+	}
+	done := make(chan searchResult, 1)
+	go func() {
+		modules, searchErr := client.Search(context.Background(), SearchOptions{Query: "needle"})
+		done <- searchResult{modules: modules, err: searchErr}
+	}()
+
+	for range maxSearchConcurrent {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatal("bounded description requests did not start")
+		}
+	}
+	select {
+	case <-started:
+		t.Fatal("search exceeded its description request limit")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	unblock()
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		if len(result.modules) != candidates || maximum.Load() != maxSearchConcurrent {
+			t.Fatalf("unexpected bounded search: modules=%d maximum=%d", len(result.modules), maximum.Load())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("bounded search did not complete")
 	}
 }
 
@@ -302,6 +519,16 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
     {"version":"1.0.0","href":"./releases/1.0.0/index.json"}
   ]
 }`,
+		prefix + "/records/browser.json": `{
+  "schemaVersion": 1,
+  "id": "acme/browser",
+  "owner": "acme",
+  "name": "browser",
+  "description": "Text generation under AI::LLM with browser support.",
+  "versions": [
+    {"version":"1.0.0-rc.1","href":"./releases/1.0.0-rc.1/index.json"}
+  ]
+}`,
 		prefix + "/records/releases/1.0.0/index.json": fmt.Sprintf(`{
   "schemaVersion": 1,
   "id": "montferret/archive",
@@ -346,6 +573,36 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
 
 		response.Header().Set("Content-Type", "application/json")
 		_, _ = response.Write([]byte(document))
+	}))
+}
+
+func newSingleModuleSearchServer(t *testing.T, detail http.HandlerFunc) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/index.json":
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"modules":"/modules.json"}}`))
+		case "/modules.json":
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"acme/browser","href":"/browser.json"}]}`))
+		case "/browser.json":
+			if detail != nil {
+				detail(response, request)
+
+				return
+			}
+
+			_, _ = response.Write([]byte(`{
+  "schemaVersion": 1,
+  "id": "acme/browser",
+  "owner": "acme",
+  "name": "browser",
+  "description": "Needle support.",
+  "versions": [{"version":"1.0.0","href":"/browser/1.0.0.json"}]
+}`))
+		default:
+			http.NotFound(response, request)
+		}
 	}))
 }
 

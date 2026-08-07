@@ -51,7 +51,7 @@ type (
 		Count int
 	}
 
-	// SearchOptions controls deterministic local filtering over registry indexes.
+	// SearchOptions controls deterministic filtering by ID, description, and category.
 	SearchOptions struct {
 		Query    string
 		Category string

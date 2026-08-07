@@ -11,12 +11,16 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/MontFerret/barn/internal/registrydist"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
 )
 
-const maxArtifactSize = 8 << 20
+const (
+	maxArtifactSize     = 8 << 20
+	maxSearchConcurrent = 6
+)
 
 var (
 	moduleSegmentPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$`)
@@ -200,19 +204,18 @@ func (client *Client) Categories(ctx context.Context) ([]Category, error) {
 	return categories, nil
 }
 
-// Search filters module summaries locally by canonical ID and category.
+// Search filters module summaries locally by canonical ID, description, and category.
 func (client *Client) Search(ctx context.Context, options SearchOptions) ([]ModuleSummary, error) {
 	query := strings.ToLower(strings.TrimSpace(options.Query))
 	categoryID := strings.TrimSpace(options.Category)
 
-	var summaries []ModuleSummary
+	var references []moduleReference
 	if categoryID == "" {
-		references, err := client.moduleReferences(ctx)
+		var err error
+		references, err = client.moduleReferences(ctx)
 		if err != nil {
 			return nil, err
 		}
-
-		summaries = moduleSummaries(references)
 	} else {
 		categories, err := client.categoryReferences(ctx)
 		if err != nil {
@@ -245,7 +248,7 @@ func (client *Client) Search(ctx context.Context, options SearchOptions) ([]Modu
 			return nil, malformed(selected.href, "category identity does not match its index entry")
 		}
 
-		references, err := client.convertModuleEntries(selected.href, document.Modules)
+		references, err = client.convertModuleEntries(selected.href, document.Modules)
 		if err != nil {
 			return nil, err
 		}
@@ -253,14 +256,44 @@ func (client *Client) Search(ctx context.Context, options SearchOptions) ([]Modu
 		if len(references) != selected.category.Count {
 			return nil, malformed(selected.href, "category module count is %d, want %d", len(references), selected.category.Count)
 		}
-
-		summaries = moduleSummaries(references)
 	}
 
-	filtered := make([]ModuleSummary, 0, len(summaries))
-	for _, summary := range summaries {
-		if query == "" || strings.Contains(strings.ToLower(summary.ID), query) {
-			filtered = append(filtered, summary)
+	if query == "" {
+		return moduleSummaries(references), nil
+	}
+
+	matches := make([]bool, len(references))
+	group, groupContext := errgroup.WithContext(ctx)
+	group.SetLimit(maxSearchConcurrent)
+
+	for index := range references {
+		if strings.Contains(strings.ToLower(references[index].summary.ID), query) {
+			matches[index] = true
+
+			continue
+		}
+
+		index := index
+		group.Go(func() error {
+			module, _, err := client.loadModuleReference(groupContext, &references[index])
+			if err != nil {
+				return err
+			}
+
+			matches[index] = strings.Contains(strings.ToLower(module.Description), query)
+
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+
+	filtered := make([]ModuleSummary, 0, len(references))
+	for index, reference := range references {
+		if matches[index] {
+			filtered = append(filtered, reference.summary)
 		}
 	}
 
@@ -285,6 +318,10 @@ func (client *Client) loadModule(ctx context.Context, id string) (*Module, []ver
 		return nil, nil, fmt.Errorf("%w: %s", ErrModuleNotFound, id)
 	}
 
+	return client.loadModuleReference(ctx, selected)
+}
+
+func (client *Client) loadModuleReference(ctx context.Context, selected *moduleReference) (*Module, []versionReference, error) {
 	var document registrydist.ModuleDocument
 	if err := client.fetchJSON(ctx, selected.href, &document); err != nil {
 		return nil, nil, err
@@ -294,8 +331,8 @@ func (client *Client) loadModule(ctx context.Context, id string) (*Module, []ver
 		return nil, nil, err
 	}
 
-	if document.ID != id || document.Owner+"/"+document.Name != id {
-		return nil, nil, malformed(selected.href, "module identity does not match requested %q", id)
+	if document.ID != selected.summary.ID || document.Owner+"/"+document.Name != selected.summary.ID {
+		return nil, nil, malformed(selected.href, "module identity does not match requested %q", selected.summary.ID)
 	}
 
 	if document.Latest != selected.summary.Latest {
