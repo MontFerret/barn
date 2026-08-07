@@ -294,6 +294,9 @@ documentation: https://example.com/archive
 	if err := os.WriteFile(filepath.Join(directory, modulemanifest.ManifestFilename), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(directory, "go.mod"), []byte("module example.com/archive\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func runGit(t *testing.T, directory string, arguments ...string) string {

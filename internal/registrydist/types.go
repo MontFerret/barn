@@ -70,10 +70,18 @@ type (
 		SchemaVersion int               `json:"schemaVersion"`
 		ID            string            `json:"id"`
 		Version       string            `json:"version"`
+		Description   string            `json:"description"`
 		Namespace     string            `json:"namespace"`
 		Ferret        string            `json:"ferret,omitempty"`
+		License       string            `json:"license"`
+		Links         map[string]string `json:"links,omitempty"`
 		Source        VersionSource     `json:"source"`
+		Package       VersionPackage    `json:"package"`
 		Content       map[string]string `json:"content"`
+	}
+
+	VersionPackage struct {
+		Path string `json:"path"`
 	}
 
 	VersionSource struct {

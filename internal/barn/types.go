@@ -25,6 +25,7 @@ type (
 		Path          string
 		Record        *registryspec.VersionRecord
 		Manifest      *modulemanifest.Manifest
+		PackagePath   string
 		Documentation []byte
 	}
 )

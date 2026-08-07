@@ -38,6 +38,7 @@ type (
 	ResolvedRelease struct {
 		Commit        string
 		Manifest      *modulemanifest.Manifest
+		PackagePath   string
 		Documentation []byte
 	}
 
@@ -104,6 +105,7 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 			}
 
 			version.Manifest = release.Manifest
+			version.PackagePath = release.PackagePath
 			version.Documentation = append([]byte{}, release.Documentation...)
 		}
 	}
@@ -184,6 +186,7 @@ func inspectRelease(ctx context.Context, directory string, local bool, temporary
 	}
 
 	manifestPath := modulemanifest.ManifestFilename
+	packagePath := modulePackageFilename
 	documentationPath := moduleDocumentationFilename
 	if source.Path != "" {
 		objectType, err := runGit(ctx, directory, local, temporaryRoot, "cat-file", "-t", commit+":"+source.Path)
@@ -196,6 +199,7 @@ func inspectRelease(ctx context.Context, directory string, local bool, temporary
 		}
 
 		manifestPath = path.Join(source.Path, modulemanifest.ManifestFilename)
+		packagePath = path.Join(source.Path, modulePackageFilename)
 		documentationPath = path.Join(source.Path, moduleDocumentationFilename)
 	}
 
@@ -220,6 +224,16 @@ func inspectRelease(ctx context.Context, directory string, local bool, temporary
 		return nil, err
 	}
 
+	packageData, err := runGit(ctx, directory, local, temporaryRoot, "show", commit+":"+packagePath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s at %s for %s@%s: %w", packagePath, commit, moduleID, version, err)
+	}
+
+	resolvedPackagePath, err := parseModulePackage(packagePath, packageData, version)
+	if err != nil {
+		return nil, fmt.Errorf("validate %s at %s for %s@%s: %w", packagePath, commit, moduleID, version, err)
+	}
+
 	documentation, err := runGit(ctx, directory, local, temporaryRoot, "show", commit+":"+documentationPath)
 	if err != nil {
 		return nil, fmt.Errorf("read %s at %s for %s@%s: %w", documentationPath, commit, moduleID, version, err)
@@ -228,6 +242,7 @@ func inspectRelease(ctx context.Context, directory string, local bool, temporary
 	return &ResolvedRelease{
 		Commit:        commit,
 		Manifest:      manifest,
+		PackagePath:   resolvedPackagePath,
 		Documentation: append([]byte{}, documentation...),
 	}, nil
 }

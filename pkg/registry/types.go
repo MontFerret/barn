@@ -29,12 +29,21 @@ type (
 	// Version contains the immutable public metadata for one module version.
 	// Content values are absolute URLs resolved by the client.
 	Version struct {
-		ID        string
-		Version   string
-		Namespace string
-		Ferret    string
-		Source    Source
-		Content   map[string]string
+		ID          string
+		Version     string
+		Description string
+		Namespace   string
+		Ferret      string
+		License     string
+		Links       map[string]string
+		Source      Source
+		Package     Package
+		Content     map[string]string
+	}
+
+	// Package identifies the installable package for a module version.
+	Package struct {
+		Path string
 	}
 
 	// Source identifies the immutable Git source of a module version.

@@ -59,14 +59,20 @@ func TestClientReadsAndSearchesStaticDistribution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version.ID != "montferret/archive" || version.Version != "1.0.0" || version.Namespace != "ARCHIVE" || version.Ferret != ">=2.0.0 <3.0.0" {
+	if version.ID != "montferret/archive" || version.Version != "1.0.0" || version.Description != "Archive support." || version.Namespace != "ARCHIVE" || version.Ferret != ">=2.0.0 <3.0.0" || version.License != "Apache-2.0" {
 		t.Fatalf("unexpected version: %#v", version)
+	}
+	if version.Package != (Package{Path: "example.com/archive"}) || !reflect.DeepEqual(version.Links, map[string]string{"homepage": "https://example.com/archive"}) {
+		t.Fatalf("unexpected package/links: %#v %#v", version.Package, version.Links)
 	}
 	if version.Source != (Source{Repository: "https://example.com/archive.git", Path: "modules/archive", Commit: strings.Repeat("a", 40)}) {
 		t.Fatalf("unexpected source: %#v", version.Source)
 	}
 	if got := version.Content["documentation"]; got != server.URL+"/records/releases/1.0.0/docs.md" {
 		t.Fatalf("unexpected resolved documentation URL: %q", got)
+	}
+	if got := version.Content["documentationHtml"]; got != server.URL+"/records/releases/1.0.0/docs.html" {
+		t.Fatalf("unexpected resolved HTML documentation URL: %q", got)
 	}
 
 	categories, err := client.Categories(context.Background())
@@ -533,14 +539,21 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
   "schemaVersion": 1,
   "id": "montferret/archive",
   "version": "1.0.0",
+  "description": "Archive support.",
   "namespace": "ARCHIVE",
   "ferret": ">=2.0.0 <3.0.0",
+  "license": "Apache-2.0",
+  "links": {"homepage":"https://example.com/archive"},
   "source": {
     "repository": "https://example.com/archive.git",
     "path": "modules/archive",
     "commit": %q
   },
-  "content": {"documentation":"./docs.md"}
+  "package": {"path":"example.com/archive"},
+  "content": {
+    "documentation":"./docs.md",
+    "documentationHtml":"./docs.html"
+  }
 }`, strings.Repeat("a", 40)),
 		prefix + "/categories.json": `{
   "schemaVersion": 1,

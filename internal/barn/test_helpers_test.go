@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 const (
 	testCommit        = "0123456789abcdef0123456789abcdef01234567"
 	testDocumentation = "# Fixture documentation\n"
+	testPackagePath   = "example.org/fixtures/archive"
 )
 
 func writeRegistryRecord(t *testing.T, root, ownerDirectory, moduleDirectory string, manifest *registryspec.ModuleManifest, records ...*registryspec.VersionRecord) {
@@ -126,7 +128,7 @@ func newGitFixtureWithManifestFilename(t *testing.T, sourcePath string, manifest
 	return newGitFixtureRepository(t, sourcePath, manifest, manifestFilename, tag, annotated, []byte(testDocumentation))
 }
 
-func newGitFixtureRepository(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, manifestFilename, tag string, annotated bool, documentation []byte) gitFixture {
+func newGitFixtureRepository(t *testing.T, sourcePath string, manifest *modulemanifest.Manifest, manifestFilename, tag string, annotated bool, documentation []byte, packageDocuments ...[]byte) gitFixture {
 	t.Helper()
 	directory := t.TempDir()
 	runTestGit(t, directory, "init")
@@ -141,6 +143,15 @@ func newGitFixtureRepository(t *testing.T, sourcePath string, manifest *modulema
 	}
 	if manifest != nil {
 		writeModuleYAML(t, filepath.Join(manifestDirectory, manifestFilename), manifest)
+	}
+	packageDocument := []byte("module " + testPackagePath + "\n\ngo 1.25.0\n")
+	if len(packageDocuments) > 0 {
+		packageDocument = packageDocuments[0]
+	}
+	if packageDocument != nil {
+		if err := os.WriteFile(filepath.Join(manifestDirectory, modulePackageFilename), packageDocument, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if documentation != nil {
 		if err := os.WriteFile(filepath.Join(manifestDirectory, moduleDocumentationFilename), documentation, 0o644); err != nil {
@@ -180,7 +191,19 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 			categories += fmt.Sprintf("  - %q\n", category)
 		}
 	}
-	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s%s%s",
+	links := ""
+	if len(manifest.Links) != 0 {
+		links = "links:\n"
+		keys := make([]string, 0, len(manifest.Links))
+		for key := range manifest.Links {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			links += fmt.Sprintf("  %s: %s\n", key, manifest.Links[key])
+		}
+	}
+	data := fmt.Sprintf("$schema: %s\nname: %s\nnamespace: %s\nversion: %s\ndescription: %q\nlicense: %s\ndocumentation: %s\n%s%s%s%s",
 		manifest.Schema,
 		manifest.Name,
 		manifest.Namespace,
@@ -191,6 +214,7 @@ func writeModuleYAML(t *testing.T, filePath string, manifest *modulemanifest.Man
 		repository,
 		compatibility,
 		categories,
+		links,
 	)
 	if err := os.WriteFile(filePath, []byte(data), 0o644); err != nil {
 		t.Fatal(err)

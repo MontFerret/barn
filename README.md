@@ -31,6 +31,7 @@ dist/
         versions/
           <version>/
             index.json
+            docs.html
             docs.md
   plugins/
     index.json
@@ -62,13 +63,17 @@ module names, source paths, or directory structure.
 The canonical identity is `<owner>/<module>`. Registry manifests contain only
 that identity and an anonymous HTTPS Git source. Each version record names a
 Git tag and pins the exact commit to which the tag must resolve. Package
-metadata comes from `ferret.yaml` at the pinned commit and optional
-monorepo source path.
+descriptive metadata comes from `ferret.yaml` at the pinned commit and optional
+monorepo source path. The installable package path comes from the adjacent
+`go.mod` module directive. Barn parses and validates that directive against the
+published version; it never derives a package path from the repository URL.
 
 For every registered version, Barn also reads `README.md` from the module root
 at the exact pinned commit. It publishes those bytes as version-scoped
-`docs.md`; it does not fetch the manifest's external documentation URL, try
-alternative documentation filenames, or rewrite Markdown.
+`docs.md` and publishes a sanitized, browser-ready `docs.html` fragment with
+stable heading anchors. Relative Markdown links are resolved against the
+manifest's explicit documentation URL. Barn does not fetch that URL or try
+alternative documentation filenames.
 
 Barn consumes the Registry v1 and Module Manifest v1 contracts from
 `github.com/MontFerret/specs`; it does not redefine those models.
@@ -79,7 +84,8 @@ Barn exposes two reusable packages for CLIs and other Go tooling:
 
 - `github.com/MontFerret/barn/pkg/registry` consumes the generated static
   distribution. It discovers artifact links from the root index, so callers do
-  not construct paths inside `dist/`.
+  not construct paths inside `dist/`. Version records expose the validated
+  package path as `Version.Package.Path` and absolute content artifact URLs.
 - `github.com/MontFerret/barn/pkg/publish` validates a tagged module release and
   prepares the Barn source records for a Git pull request. It does not write the
   records, upload a package, or call a Git hosting API.
@@ -145,6 +151,8 @@ Before registering a release, make sure that:
 - the release tag and its target commit have been pushed to that repository;
 - a valid `ferret.yaml` exists at the repository root, or at the optional
   module source path in a monorepo;
+- a valid `go.mod` exists beside `ferret.yaml`, and its module directive is
+  compatible with the release version;
 - a `README.md` containing the release documentation exists beside that
   `ferret.yaml`;
 - the manifest's `name` is the `<owner>/<module>` being registered and its

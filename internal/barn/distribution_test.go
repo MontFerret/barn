@@ -21,6 +21,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	sourceManifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.2.0", "Work with archives.")
 	sourceManifest.Repository.Directory = sourcePath
 	sourceManifest.Categories = []string{"files"}
+	sourceManifest.Links = map[string]string{"homepage": "https://example.org/archive"}
 	fixture := newGitFixtureWithDocumentation(t, sourcePath, sourceManifest, "archive/v1.2.0", true, []byte(documentation))
 	registryManifest := testRegistryManifest("montferret", "archive")
 	registryManifest.Source.Path = sourcePath
@@ -42,6 +43,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		"index.json",
 		"modules/index.json",
 		"modules/montferret/archive/index.json",
+		"modules/montferret/archive/versions/1.2.0/docs.html",
 		"modules/montferret/archive/versions/1.2.0/docs.md",
 		"modules/montferret/archive/versions/1.2.0/index.json",
 		"plugins/index.json",
@@ -106,7 +108,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	versionPath := "modules/montferret/archive/versions/1.2.0/index.json"
 	var versionDocument VersionDocument
 	decodeDistributionJSON(t, distribution, versionPath, &versionDocument)
-	if versionDocument.ID != "montferret/archive" || versionDocument.Version != "1.2.0" || versionDocument.Namespace != "ARCHIVE" {
+	if versionDocument.ID != "montferret/archive" || versionDocument.Version != "1.2.0" || versionDocument.Description != "Work with archives." || versionDocument.Namespace != "ARCHIVE" || versionDocument.License != "Apache-2.0" {
 		t.Fatalf("unexpected version identity: %#v", versionDocument)
 	}
 	wantSource := VersionSource{
@@ -114,11 +116,17 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		Path:       sourcePath,
 		Commit:     fixture.commit,
 	}
-	if versionDocument.Source != wantSource || !reflect.DeepEqual(versionDocument.Content, map[string]string{"documentation": "./docs.md"}) {
+	if versionDocument.Source != wantSource || versionDocument.Package != (VersionPackage{Path: testPackagePath}) || !reflect.DeepEqual(versionDocument.Links, sourceManifest.Links) || !reflect.DeepEqual(versionDocument.Content, map[string]string{
+		"documentation":     "./docs.md",
+		"documentationHtml": "./docs.html",
+	}) {
 		t.Fatalf("unexpected version source/content: %#v", versionDocument)
 	}
 	if got := string(distribution.Files["modules/montferret/archive/versions/1.2.0/docs.md"]); got != documentation {
 		t.Fatalf("documentation differs:\n%s", got)
+	}
+	if got := string(distribution.Files["modules/montferret/archive/versions/1.2.0/docs.html"]); !strings.Contains(got, `<h1 id="archive">Archive</h1>`) || !strings.Contains(got, "Pinned documentation.") {
+		t.Fatalf("rendered documentation differs:\n%s", got)
 	}
 	if data := string(distribution.Files[versionPath]); strings.Contains(data, "archive/v1.2.0") || strings.Contains(data, sourceManifest.Documentation) || strings.Contains(data, documentation) {
 		t.Fatalf("version document leaks publication or documentation data:\n%s", data)
@@ -176,11 +184,11 @@ func TestGenerateDistributionDeterministicOrderingAndLatest(t *testing.T) {
 
 	var beta VersionDocument
 	decodeDistributionJSON(t, first, "modules/montferret/archive/versions/1.1.0-beta.1/index.json", &beta)
-	if beta.Namespace != "ARCHIVE_BETA" || beta.Ferret != ">=2.2.0-beta.1" || beta.Content["documentation"] != "./docs.md" {
+	if beta.Namespace != "ARCHIVE_BETA" || beta.Ferret != ">=2.2.0-beta.1" || beta.Package.Path == "" || beta.Content["documentation"] != "./docs.md" || beta.Content["documentationHtml"] != "./docs.html" {
 		t.Fatalf("version metadata differs: %#v", beta)
 	}
 	buildData := string(first.Files["modules/montferret/archive/versions/1.0.0+build.2/index.json"])
-	if strings.Contains(buildData, "\"ferret\"") || strings.Contains(buildData, "\"path\"") {
+	if strings.Contains(buildData, "\"ferret\"") || strings.Contains(buildData, "\"links\"") {
 		t.Fatalf("optional empty version fields were emitted:\n%s", buildData)
 	}
 }
@@ -457,6 +465,18 @@ func TestGenerateDistributionRequiresResolvedDocumentation(t *testing.T) {
 	}
 }
 
+func TestGenerateDistributionRequiresResolvedPackage(t *testing.T) {
+	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+	}})
+	module.Versions[0].PackagePath = ""
+
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	if err == nil || !strings.Contains(err.Error(), "package has not been resolved") {
+		t.Fatalf("expected unresolved package error, got %v", err)
+	}
+}
+
 type distributionTestVersion struct {
 	version     string
 	namespace   string
@@ -476,6 +496,7 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 		versions = append(versions, &Version{
 			Record:        testVersion(fixture.version, "v"+fixture.version, testCommit[:39]+string(rune('0'+index))),
 			Manifest:      manifest,
+			PackagePath:   "example.org/fixtures/" + name,
 			Documentation: []byte("# " + fixture.version + "\n"),
 		})
 	}

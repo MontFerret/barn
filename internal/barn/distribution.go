@@ -42,6 +42,7 @@ type (
 	ModuleDocument        = registrydist.ModuleDocument
 	ModuleDocumentVersion = registrydist.ModuleDocumentVersion
 	VersionDocument       = registrydist.VersionDocument
+	VersionPackage        = registrydist.VersionPackage
 	VersionSource         = registrydist.VersionSource
 
 	moduleProjection struct {
@@ -168,6 +169,10 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			return moduleProjection{}, fmt.Errorf("module %s@%s documentation has not been resolved", registryModule.ID(), version.Record.Version)
 		}
 
+		if version.PackagePath == "" {
+			return moduleProjection{}, fmt.Errorf("module %s@%s package has not been resolved", registryModule.ID(), version.Record.Version)
+		}
+
 		if err := validateCategoryIDs(registryModule.ID(), version.Record.Version, version.Manifest.Categories); err != nil {
 			return moduleProjection{}, err
 		}
@@ -212,14 +217,21 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			SchemaVersion: registrydist.SchemaVersion,
 			ID:            registryModule.ID(),
 			Version:       version.Record.Version,
+			Description:   version.Manifest.Description,
 			Namespace:     version.Manifest.Namespace,
 			Ferret:        ferret,
+			License:       version.Manifest.License,
+			Links:         cloneStringMap(version.Manifest.Links),
 			Source: VersionSource{
 				Repository: registryModule.Manifest.Source.Repository,
 				Path:       registryModule.Manifest.Source.Path,
 				Commit:     version.Record.Commit,
 			},
-			Content: map[string]string{"documentation": "./docs.md"},
+			Package: VersionPackage{Path: version.PackagePath},
+			Content: map[string]string{
+				"documentation":     "./docs.md",
+				"documentationHtml": "./docs.html",
+			},
 		}
 
 		if err := distribution.addJSON(path.Join(versionPath, "index.json"), versionDocument); err != nil {
@@ -227,6 +239,12 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 		}
 
 		distribution.Files[path.Join(versionPath, "docs.md")] = bytes.Clone(version.Documentation)
+
+		renderedDocumentation, err := renderDocumentation(version.Documentation, version.Manifest.Documentation)
+		if err != nil {
+			return moduleProjection{}, fmt.Errorf("render documentation for %s@%s: %w", registryModule.ID(), version.Record.Version, err)
+		}
+		distribution.Files[path.Join(versionPath, "docs.html")] = renderedDocumentation
 	}
 
 	if err := distribution.addJSON(path.Join(modulePath, "index.json"), document); err != nil {
@@ -237,6 +255,19 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 		indexEntry:  indexEntry,
 		categoryIDs: uniqueCategoryIDs(metadataVersion.Manifest.Categories),
 	}, nil
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+
+	return cloned
 }
 
 func validateCategoryIDs(moduleID, version string, categories []string) error {

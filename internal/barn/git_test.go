@@ -40,6 +40,91 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 			if got := string(registry.Modules[0].Versions[0].Documentation); got != testDocumentation {
 				t.Fatalf("documentation not resolved: %q", got)
 			}
+
+			if got := registry.Modules[0].Versions[0].PackagePath; got != testPackagePath {
+				t.Fatalf("package path = %q, want %q", got, testPackagePath)
+			}
+		})
+	}
+}
+
+func TestGitInspectorValidatesPinnedGoModule(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		version     string
+		sourcePath  string
+		goMod       []byte
+		wantPackage string
+		wantError   string
+	}{
+		{
+			name:        "vanity path",
+			version:     "1.2.0",
+			sourcePath:  "modules/archive",
+			goMod:       []byte("module modules.example.org/tools/archive\n\ngo 1.25.0\n"),
+			wantPackage: "modules.example.org/tools/archive",
+		},
+		{
+			name:        "major version suffix",
+			version:     "2.1.0",
+			goMod:       []byte("module modules.example.org/tools/archive/v2\n\ngo 1.25.0\n"),
+			wantPackage: "modules.example.org/tools/archive/v2",
+		},
+		{
+			name:      "missing go.mod",
+			version:   "1.2.0",
+			goMod:     nil,
+			wantError: modulePackageFilename,
+		},
+		{
+			name:      "malformed go.mod",
+			version:   "1.2.0",
+			goMod:     []byte("module [invalid\n"),
+			wantError: "validate go.mod",
+		},
+		{
+			name:      "missing module directive",
+			version:   "1.2.0",
+			goMod:     []byte("go 1.25.0\n"),
+			wantError: "module directive is required",
+		},
+		{
+			name:      "major version mismatch",
+			version:   "2.1.0",
+			goMod:     []byte("module modules.example.org/tools/archive\n\ngo 1.25.0\n"),
+			wantError: "incompatible with version",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := testModuleManifest("montferret/archive", "ARCHIVE", test.version, "Archives.")
+			manifest.Repository.Directory = test.sourcePath
+			fixture := newGitFixtureRepository(
+				t,
+				test.sourcePath,
+				manifest,
+				modulemanifest.ManifestFilename,
+				"v"+test.version,
+				false,
+				[]byte(testDocumentation),
+				test.goMod,
+			)
+			registry := registryForFixture(fixture, test.version, "v"+test.version)
+			registry.Modules[0].Manifest.Source.Path = test.sourcePath
+
+			err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("expected error containing %q, got %v", test.wantError, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := registry.Modules[0].Versions[0].PackagePath; got != test.wantPackage {
+				t.Fatalf("package path = %q, want %q", got, test.wantPackage)
+			}
 		})
 	}
 }

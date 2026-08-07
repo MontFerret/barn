@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	gomodule "golang.org/x/mod/module"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/MontFerret/barn/internal/registrydist"
@@ -135,8 +136,12 @@ func (client *Client) Version(ctx context.Context, id, version string) (*Version
 		return nil, malformed(selected.href, "document identity %q@%q does not match requested %q@%q", document.ID, document.Version, id, version)
 	}
 
-	if document.Namespace == "" || document.Source.Repository == "" || document.Source.Commit == "" {
+	if document.Description == "" || document.Namespace == "" || document.License == "" || document.Package.Path == "" || document.Source.Repository == "" || document.Source.Commit == "" {
 		return nil, malformed(selected.href, "version document is missing required metadata")
+	}
+
+	if err := gomodule.Check(document.Package.Path, "v"+document.Version); err != nil {
+		return nil, malformed(selected.href, "package metadata is invalid: %v", err)
 	}
 
 	owner, name, _ := strings.Cut(id, "/")
@@ -175,16 +180,34 @@ func (client *Client) Version(ctx context.Context, id, version string) (*Version
 		content[name] = resolved.String()
 	}
 
+	links := make(map[string]string, len(document.Links))
+	for name, href := range document.Links {
+		if name == "" {
+			return nil, malformed(selected.href, "link name is empty")
+		}
+
+		link, err := url.Parse(href)
+		if err != nil || link.Scheme != "https" || link.Host == "" || link.User != nil {
+			return nil, malformed(selected.href, "link %q is not an absolute HTTPS URL", name)
+		}
+
+		links[name] = link.String()
+	}
+
 	return &Version{
-		ID:        document.ID,
-		Version:   document.Version,
-		Namespace: document.Namespace,
-		Ferret:    document.Ferret,
+		ID:          document.ID,
+		Version:     document.Version,
+		Description: document.Description,
+		Namespace:   document.Namespace,
+		Ferret:      document.Ferret,
+		License:     document.License,
+		Links:       links,
 		Source: Source{
 			Repository: document.Source.Repository,
 			Path:       document.Source.Path,
 			Commit:     document.Source.Commit,
 		},
+		Package: Package{Path: document.Package.Path},
 		Content: content,
 	}, nil
 }
