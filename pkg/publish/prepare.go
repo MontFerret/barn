@@ -74,6 +74,7 @@ func prepare(ctx context.Context, request Request, reader registryReader, inspec
 			Path:       manifest.Repository.Directory,
 		},
 	}
+
 	if err := registryspec.ValidateModuleManifest(moduleRecord); err != nil {
 		return nil, stageError(StageRequest, err)
 	}
@@ -84,6 +85,7 @@ func prepare(ctx context.Context, request Request, reader registryReader, inspec
 		Tag:     request.Tag,
 		Commit:  placeholderCommit,
 	}
+
 	if err := registryspec.ValidateVersionRecord(requestedVersion); err != nil {
 		return nil, stageError(StageRequest, err)
 	}
@@ -104,6 +106,7 @@ func prepare(ctx context.Context, request Request, reader registryReader, inspec
 		Tag:     request.Tag,
 		Commit:  release.Commit,
 	}
+
 	if err := registryspec.ValidateVersionRecord(versionRecord); err != nil {
 		return nil, stageError(StageGit, err)
 	}

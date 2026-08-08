@@ -1,10 +1,13 @@
 package barn
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MontFerret/specs/pkg/validation"
 )
 
 func TestLoadValidRegistryLayout(t *testing.T) {
@@ -59,6 +62,39 @@ func TestLoadRejectsIdentityAndFilenameMismatches(t *testing.T) {
 			if _, err := Load(root); err == nil {
 				t.Fatal("expected layout to be rejected")
 			}
+		})
+	}
+}
+
+func TestLoadRejectsNonCanonicalRegistryIdentity(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		owner  string
+		module string
+		path   string
+	}{
+		{name: "uppercase owner", owner: "MONTFERRET", module: "archive", path: "/owner"},
+		{name: "mixed-case owner", owner: "MontFerret", module: "archive", path: "/owner"},
+		{name: "uppercase module", owner: "montferret", module: "ARCHIVE", path: "/name"},
+		{name: "mixed-case module", owner: "montferret", module: "Archive", path: "/name"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeRegistryRecord(
+				t,
+				root,
+				test.owner,
+				test.module,
+				testRegistryManifest(test.owner, test.module),
+				testVersion("1.0.0", "v1.0.0", testCommit),
+			)
+
+			_, err := Load(root)
+			var validationErr *validation.Errors
+			if !errors.As(err, &validationErr) {
+				t.Fatalf("expected Specs validation error, got %T: %v", err, err)
+			}
+			requireRegistryViolation(t, validationErr, test.path, validation.Rule("pattern"))
 		})
 	}
 }
@@ -171,4 +207,15 @@ func TestDuplicateIdentityDetection(t *testing.T) {
 	if err := addIdentity(identities, second); err == nil {
 		t.Fatal("expected duplicate identity to be rejected")
 	}
+}
+
+func requireRegistryViolation(t *testing.T, validationErr *validation.Errors, path string, rule validation.Rule) {
+	t.Helper()
+	for _, violation := range validationErr.Violations {
+		if violation.Path == path && violation.Rule == rule {
+			return
+		}
+	}
+
+	t.Fatalf("missing violation path=%q rule=%q in %#v", path, rule, validationErr.Violations)
 }

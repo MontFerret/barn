@@ -60,13 +60,18 @@ release. A module may declare more than one category and therefore appear in
 multiple category indexes. Barn does not infer categories from FQL namespaces,
 module names, source paths, or directory structure.
 
-The canonical identity is `<owner>/<module>`. Registry manifests contain only
-that identity and an anonymous HTTPS Git source. Each version record names a
-Git tag and pins the exact commit to which the tag must resolve. Package
-descriptive metadata comes from `ferret.yaml` at the pinned commit and optional
-monorepo source path. The installable package path comes from the adjacent
-`go.mod` module directive. Barn parses and validates that directive against the
-published version; it never derives a package path from the repository URL.
+The canonical identity is the lowercase `<owner>/<module>` coordinate.
+Registry manifests contain only that identity and an anonymous HTTPS Git
+source. Barn rejects mixed-case identity values and directory segments before
+Git inspection or distribution generation; it never silently lowercases stored
+input. Generated module IDs are the exact `<owner>/<module>` value, while the
+Ferret runtime namespace remains an independent, case-sensitive identifier.
+Each version record names a Git tag and pins the exact commit to which the tag
+must resolve. Package descriptive metadata comes from `ferret.yaml` at the
+pinned commit and optional monorepo source path. The installable package path
+comes from the adjacent `go.mod` module directive. Barn parses and validates
+that directive against the published version; it never derives a package path
+from the repository URL.
 
 After an unstamped version record reaches `main`, Barn assigns `publishedAt`
 once and commits it back to the canonical record. The value is a whole-second
@@ -195,9 +200,10 @@ The registry manifest identifies the module and its Git source:
 }
 ```
 
-The directory names must match `owner` and `name`. Omit `source.path` when
-`ferret.yaml` is at the repository root; otherwise it must be a normalized
-repository-relative path to the module directory.
+The directory names must use canonical lowercase spelling and match `owner` and
+`name` exactly. Omit `source.path` when `ferret.yaml` is at the repository root;
+otherwise it must be a normalized repository-relative path to the module
+directory.
 
 The version record pins the release tag to its exact commit:
 

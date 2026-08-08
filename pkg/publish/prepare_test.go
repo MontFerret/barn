@@ -15,6 +15,7 @@ import (
 	registryclient "github.com/MontFerret/barn/pkg/registry"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
+	"github.com/MontFerret/specs/pkg/validation"
 )
 
 const (
@@ -176,7 +177,7 @@ func TestPrepareValidatesManifestRequestAndGitFailures(t *testing.T) {
 
 		_, err := prepare(context.Background(), Request{Directory: directory, Tag: "invalid tag"}, &fakeRegistry{}, &fakeInspector{})
 		assertStage(t, err, StageRequest)
-		var validationErr *registryspec.ValidationErrors
+		var validationErr *validation.Errors
 		if !errors.As(err, &validationErr) {
 			t.Fatalf("expected specs validation error, got %v", err)
 		}
@@ -198,6 +199,41 @@ func TestPrepareValidatesManifestRequestAndGitFailures(t *testing.T) {
 		}
 		assertStage(t, err, StageGit)
 	})
+}
+
+func TestPrepareRejectsNonCanonicalModuleIdentityBeforeExternalWork(t *testing.T) {
+	for _, id := range []string{
+		"MONTFERRET/archive",
+		"MontFerret/archive",
+		"montferret/ARCHIVE",
+		"montferret/Archive",
+	} {
+		t.Run(id, func(t *testing.T) {
+			directory := t.TempDir()
+			writeManifest(t, directory, id, "1.0.0", testRepository, testSourcePath)
+			reader := &fakeRegistry{}
+			inspector := &fakeInspector{}
+
+			result, err := prepare(
+				context.Background(),
+				Request{Directory: directory, Tag: "v1.0.0"},
+				reader,
+				inspector,
+			)
+			if result != nil {
+				t.Fatalf("invalid identity prepared files: %#v", result.Files)
+			}
+			assertStage(t, err, StageManifest)
+			if reader.moduleCalls != 0 || reader.versionCalls != 0 || inspector.calls != 0 {
+				t.Fatalf(
+					"external work ran after identity validation failed: module=%d version=%d git=%d",
+					reader.moduleCalls,
+					reader.versionCalls,
+					inspector.calls,
+				)
+			}
+		})
+	}
 }
 
 func TestPrepareResolvesTagWithSharedGitInspector(t *testing.T) {
@@ -232,17 +268,21 @@ func TestPrepareResolvesTagWithSharedGitInspector(t *testing.T) {
 }
 
 type fakeRegistry struct {
-	module     *registryclient.Module
-	moduleErr  error
-	version    *registryclient.Version
-	versionErr error
+	module       *registryclient.Module
+	moduleErr    error
+	version      *registryclient.Version
+	versionErr   error
+	moduleCalls  int
+	versionCalls int
 }
 
 func (registry *fakeRegistry) Module(context.Context, string) (*registryclient.Module, error) {
+	registry.moduleCalls++
 	return registry.module, registry.moduleErr
 }
 
 func (registry *fakeRegistry) Version(context.Context, string, string) (*registryclient.Version, error) {
+	registry.versionCalls++
 	return registry.version, registry.versionErr
 }
 

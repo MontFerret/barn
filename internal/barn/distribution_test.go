@@ -374,6 +374,37 @@ func TestGenerateDistributionRejectsInvalidCategoryIDs(t *testing.T) {
 	}
 }
 
+func TestGenerateDistributionRejectsCaseVariantIdentities(t *testing.T) {
+	canonical := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+	}})
+
+	for _, test := range []struct {
+		name   string
+		owner  string
+		module string
+	}{
+		{name: "uppercase owner", owner: "MONTFERRET", module: "archive"},
+		{name: "mixed-case owner", owner: "MontFerret", module: "archive"},
+		{name: "uppercase module", owner: "montferret", module: "ARCHIVE"},
+		{name: "mixed-case module", owner: "montferret", module: "Archive"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			variant := distributionTestModule(test.owner, test.module, []distributionTestVersion{{
+				version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+			}})
+
+			distribution, err := GenerateDistribution(&Registry{Modules: []*Module{canonical, variant}})
+			if err == nil {
+				t.Fatal("expected case-variant identity to be rejected")
+			}
+			if distribution != nil {
+				t.Fatalf("invalid registry returned generated artifacts: %#v", distribution.Files)
+			}
+		})
+	}
+}
+
 func TestDistributionRootAndEmptyIndexes(t *testing.T) {
 	distribution, err := GenerateDistribution(&Registry{})
 	if err != nil {

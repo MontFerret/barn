@@ -342,6 +342,9 @@ func TestClientNotFoundErrors(t *testing.T) {
 	if _, err := client.Module(context.Background(), "acme/missing"); !errors.Is(err, ErrModuleNotFound) {
 		t.Fatalf("expected module-not-found error, got %v", err)
 	}
+	if _, err := client.Module(context.Background(), "MontFerret/archive"); !errors.Is(err, ErrModuleNotFound) {
+		t.Fatalf("mixed-case lookup was normalized or returned an unexpected error: %v", err)
+	}
 
 	if _, err := client.Version(context.Background(), "montferret/archive", "2.0.0"); !errors.Is(err, ErrVersionNotFound) {
 		t.Fatalf("expected version-not-found error, got %v", err)
@@ -427,6 +430,28 @@ func TestClientRejectsMalformedAndUnsupportedArtifacts(t *testing.T) {
 				t.Fatalf("expected %v, got %v", test.target, err)
 			}
 		})
+	}
+}
+
+func TestClientRejectsNonCanonicalArtifactIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/index.json":
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
+		case "/modules.json":
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"MontFerret/Archive","href":"/module.json"}]}`))
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Modules(context.Background()); !errors.Is(err, ErrMalformedArtifact) {
+		t.Fatalf("expected non-canonical identity to be malformed, got %v", err)
 	}
 }
 
