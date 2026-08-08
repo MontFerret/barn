@@ -2,30 +2,23 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	gomodule "golang.org/x/mod/module"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/MontFerret/barn/internal/registrydist"
-	registryspec "github.com/MontFerret/specs/pkg/registry"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 const (
 	maxArtifactSize     = 8 << 20
 	maxSearchConcurrent = 6
-)
-
-var (
-	moduleSegmentPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$`)
-	categoryIDPattern    = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
 type (
@@ -123,12 +116,8 @@ func (client *Client) Version(ctx context.Context, id, version string) (*Version
 		return nil, fmt.Errorf("%w: %s@%s", ErrVersionNotFound, id, version)
 	}
 
-	var document registrydist.VersionDocument
-	if err := client.fetchJSON(ctx, selected.href, &document); err != nil {
-		return nil, err
-	}
-
-	if err := validateSchemaVersion(selected.href, document.SchemaVersion); err != nil {
+	document, err := fetchArtifact(ctx, client, selected.href, registryartifact.ParseVersionDocument)
+	if err != nil {
 		return nil, err
 	}
 
@@ -136,42 +125,8 @@ func (client *Client) Version(ctx context.Context, id, version string) (*Version
 		return nil, malformed(selected.href, "document identity %q@%q does not match requested %q@%q", document.ID, document.Version, id, version)
 	}
 
-	if document.Description == "" || document.Namespace == "" || document.License == "" || document.Package.Path == "" || document.Source.Repository == "" || document.Source.Commit == "" {
-		return nil, malformed(selected.href, "version document is missing required metadata")
-	}
-
-	if err := gomodule.Check(document.Package.Path, "v"+document.Version); err != nil {
-		return nil, malformed(selected.href, "package metadata is invalid: %v", err)
-	}
-
-	owner, name, _ := strings.Cut(id, "/")
-	if err := registryspec.ValidateModuleManifest(&registryspec.ModuleManifest{
-		Schema: registryspec.ModuleManifestSchemaV1,
-		Owner:  owner,
-		Name:   name,
-		Source: registryspec.Source{
-			Repository: document.Source.Repository,
-			Path:       document.Source.Path,
-		},
-	}); err != nil {
-		return nil, malformed(selected.href, "version source is invalid: %v", err)
-	}
-
-	if err := registryspec.ValidateVersionRecord(&registryspec.VersionRecord{
-		Schema:  registryspec.VersionRecordSchemaV1,
-		Version: document.Version,
-		Tag:     "v" + document.Version,
-		Commit:  document.Source.Commit,
-	}); err != nil {
-		return nil, malformed(selected.href, "version release identity is invalid: %v", err)
-	}
-
 	content := make(map[string]string, len(document.Content))
 	for name, href := range document.Content {
-		if name == "" {
-			return nil, malformed(selected.href, "content name is empty")
-		}
-
 		resolved, err := client.resolveLink(selected.href, href)
 		if err != nil {
 			return nil, malformed(selected.href, "content %q: %v", name, err)
@@ -182,16 +137,7 @@ func (client *Client) Version(ctx context.Context, id, version string) (*Version
 
 	links := make(map[string]string, len(document.Links))
 	for name, href := range document.Links {
-		if name == "" {
-			return nil, malformed(selected.href, "link name is empty")
-		}
-
-		link, err := url.Parse(href)
-		if err != nil || link.Scheme != "https" || link.Host == "" || link.User != nil {
-			return nil, malformed(selected.href, "link %q is not an absolute HTTPS URL", name)
-		}
-
-		links[name] = link.String()
+		links[name] = href
 	}
 
 	return &Version{
@@ -258,12 +204,8 @@ func (client *Client) Search(ctx context.Context, options SearchOptions) ([]Modu
 			return []ModuleSummary{}, nil
 		}
 
-		var document registrydist.CategoryDocument
-		if err := client.fetchJSON(ctx, selected.href, &document); err != nil {
-			return nil, err
-		}
-
-		if err := validateSchemaVersion(selected.href, document.SchemaVersion); err != nil {
+		document, err := fetchArtifact(ctx, client, selected.href, registryartifact.ParseCategoryDocument)
+		if err != nil {
 			return nil, err
 		}
 
@@ -345,16 +287,12 @@ func (client *Client) loadModule(ctx context.Context, id string) (*Module, []ver
 }
 
 func (client *Client) loadModuleReference(ctx context.Context, selected *moduleReference) (*Module, []versionReference, error) {
-	var document registrydist.ModuleDocument
-	if err := client.fetchJSON(ctx, selected.href, &document); err != nil {
+	document, err := fetchArtifact(ctx, client, selected.href, registryartifact.ParseModuleDocument)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	if err := validateSchemaVersion(selected.href, document.SchemaVersion); err != nil {
-		return nil, nil, err
-	}
-
-	if document.ID != selected.summary.ID || document.Owner+"/"+document.Name != selected.summary.ID {
+	if document.ID != selected.summary.ID {
 		return nil, nil, malformed(selected.href, "module identity does not match requested %q", selected.summary.ID)
 	}
 
@@ -365,14 +303,6 @@ func (client *Client) loadModuleReference(ctx context.Context, selected *moduleR
 	versions, err := client.convertVersionEntries(selected.href, document.Versions)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	if len(versions) == 0 {
-		return nil, nil, malformed(selected.href, "module has no versions")
-	}
-
-	if document.Latest != "" && !containsVersion(versions, document.Latest) {
-		return nil, nil, malformed(selected.href, "latest version %q is not listed", document.Latest)
 	}
 
 	moduleVersions := make([]VersionSummary, len(versions))
@@ -396,7 +326,7 @@ func (client *Client) moduleReferences(ctx context.Context) ([]moduleReference, 
 		return nil, err
 	}
 
-	href, exists := root.Artifacts["modules"]
+	href, exists := root.Artifacts[registryartifact.ArtifactKeyModules]
 	if !exists || href == "" {
 		return nil, malformed(rootURL, "root index does not define the modules artifact")
 	}
@@ -406,39 +336,18 @@ func (client *Client) moduleReferences(ctx context.Context) ([]moduleReference, 
 		return nil, malformed(rootURL, "modules artifact: %v", err)
 	}
 
-	var index registrydist.ModuleIndex
-	if err := client.fetchJSON(ctx, indexURL, &index); err != nil {
-		return nil, err
-	}
-
-	if err := validateSchemaVersion(indexURL, index.SchemaVersion); err != nil {
+	index, err := fetchArtifact(ctx, client, indexURL, registryartifact.ParseModuleIndex)
+	if err != nil {
 		return nil, err
 	}
 
 	return client.convertModuleEntries(indexURL, index.Modules)
 }
 
-func (client *Client) convertModuleEntries(parent *url.URL, entries []registrydist.ModuleIndexEntry) ([]moduleReference, error) {
+func (client *Client) convertModuleEntries(parent *url.URL, entries []registryartifact.ModuleIndexEntry) ([]moduleReference, error) {
 	references := make([]moduleReference, 0, len(entries))
-	seen := make(map[string]struct{}, len(entries))
 
 	for _, entry := range entries {
-		if !validModuleID(entry.ID) {
-			return nil, malformed(parent, "module ID %q is invalid", entry.ID)
-		}
-
-		if _, exists := seen[entry.ID]; exists {
-			return nil, malformed(parent, "module ID %q is duplicated", entry.ID)
-		}
-
-		seen[entry.ID] = struct{}{}
-
-		if entry.Latest != "" {
-			if _, err := semver.StrictNewVersion(entry.Latest); err != nil {
-				return nil, malformed(parent, "module %q latest version %q is invalid", entry.ID, entry.Latest)
-			}
-		}
-
 		href, err := client.resolveLink(parent, entry.Href)
 		if err != nil {
 			return nil, malformed(parent, "module %q link: %v", entry.ID, err)
@@ -455,25 +364,13 @@ func (client *Client) convertModuleEntries(parent *url.URL, entries []registrydi
 	return references, nil
 }
 
-func (client *Client) convertVersionEntries(parent *url.URL, entries []registrydist.ModuleDocumentVersion) ([]versionReference, error) {
+func (client *Client) convertVersionEntries(parent *url.URL, entries []registryartifact.ModuleDocumentVersion) ([]versionReference, error) {
 	references := make([]versionReference, 0, len(entries))
 	parsed := make(map[string]*semver.Version, len(entries))
 
 	for _, entry := range entries {
-		if _, exists := parsed[entry.Version]; exists {
-			return nil, malformed(parent, "version %q is duplicated", entry.Version)
-		}
-
-		value, err := semver.StrictNewVersion(entry.Version)
-		if err != nil {
-			return nil, malformed(parent, "version %q is invalid", entry.Version)
-		}
-
+		value, _ := semver.StrictNewVersion(entry.Version)
 		parsed[entry.Version] = value
-		_, offset := entry.PublishedAt.Zone()
-		if entry.PublishedAt.IsZero() || offset != 0 {
-			return nil, malformed(parent, "version %q publication timestamp is missing or is not UTC", entry.Version)
-		}
 
 		href, err := client.resolveLink(parent, entry.Href)
 		if err != nil {
@@ -504,7 +401,7 @@ func (client *Client) categoryReferences(ctx context.Context) ([]categoryReferen
 		return nil, err
 	}
 
-	href, exists := root.Artifacts["categories"]
+	href, exists := root.Artifacts[registryartifact.ArtifactKeyCategories]
 	if !exists || href == "" {
 		return nil, malformed(rootURL, "root index does not define the categories artifact")
 	}
@@ -514,29 +411,14 @@ func (client *Client) categoryReferences(ctx context.Context) ([]categoryReferen
 		return nil, malformed(rootURL, "categories artifact: %v", err)
 	}
 
-	var index registrydist.CategoryIndex
-	if err := client.fetchJSON(ctx, indexURL, &index); err != nil {
-		return nil, err
-	}
-
-	if err := validateSchemaVersion(indexURL, index.SchemaVersion); err != nil {
+	index, err := fetchArtifact(ctx, client, indexURL, registryartifact.ParseCategoryIndex)
+	if err != nil {
 		return nil, err
 	}
 
 	references := make([]categoryReference, 0, len(index.Categories))
-	seen := make(map[string]struct{}, len(index.Categories))
 
 	for _, entry := range index.Categories {
-		if !categoryIDPattern.MatchString(entry.ID) || entry.Name == "" || entry.Count < 0 {
-			return nil, malformed(indexURL, "category %q has invalid metadata", entry.ID)
-		}
-
-		if _, exists := seen[entry.ID]; exists {
-			return nil, malformed(indexURL, "category ID %q is duplicated", entry.ID)
-		}
-
-		seen[entry.ID] = struct{}{}
-
 		href, err := client.resolveLink(indexURL, entry.Href)
 		if err != nil {
 			return nil, malformed(indexURL, "category %q link: %v", entry.ID, err)
@@ -553,32 +435,27 @@ func (client *Client) categoryReferences(ctx context.Context) ([]categoryReferen
 	return references, nil
 }
 
-func (client *Client) rootIndex(ctx context.Context) (*registrydist.RootIndex, *url.URL, error) {
+func (client *Client) rootIndex(ctx context.Context) (*registryartifact.RootIndex, *url.URL, error) {
 	rootURL := client.baseURL.ResolveReference(&url.URL{Path: "index.json"})
-	var root registrydist.RootIndex
-
-	if err := client.fetchJSON(ctx, rootURL, &root); err != nil {
+	root, err := fetchArtifact(ctx, client, rootURL, registryartifact.ParseRootIndex)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	if err := validateSchemaVersion(rootURL, root.SchemaVersion); err != nil {
-		return nil, nil, err
-	}
-
-	return &root, rootURL, nil
+	return root, rootURL, nil
 }
 
-func (client *Client) fetchJSON(ctx context.Context, endpoint *url.URL, target any) error {
+func (client *Client) fetch(ctx context.Context, endpoint *url.URL) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return &TransportError{URL: endpoint.String(), Err: err}
+		return nil, &TransportError{URL: endpoint.String(), Err: err}
 	}
 
 	request.Header.Set("Accept", "application/json")
 
 	response, err := client.httpClient.Do(request)
 	if err != nil {
-		return &TransportError{URL: endpoint.String(), Err: err}
+		return nil, &TransportError{URL: endpoint.String(), Err: err}
 	}
 
 	defer response.Body.Close()
@@ -586,23 +463,38 @@ func (client *Client) fetchJSON(ctx context.Context, endpoint *url.URL, target a
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
 
-		return &HTTPError{URL: endpoint.String(), StatusCode: response.StatusCode, Status: response.Status}
+		return nil, &HTTPError{URL: endpoint.String(), StatusCode: response.StatusCode, Status: response.Status}
 	}
 
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxArtifactSize+1))
 	if err != nil {
-		return &TransportError{URL: endpoint.String(), Err: err}
+		return nil, &TransportError{URL: endpoint.String(), Err: err}
 	}
 
 	if len(data) > maxArtifactSize {
-		return malformed(endpoint, "document exceeds %d bytes", maxArtifactSize)
+		return nil, malformed(endpoint, "document exceeds %d bytes", maxArtifactSize)
 	}
 
-	if err := registrydist.Decode(data, target); err != nil {
-		return &ArtifactError{URL: endpoint.String(), Err: err}
+	return data, nil
+}
+
+func fetchArtifact[T any](ctx context.Context, client *Client, endpoint *url.URL, parse func([]byte) (*T, error)) (*T, error) {
+	data, err := client.fetch(ctx, endpoint)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	document, err := parse(data)
+	if err == nil {
+		return document, nil
+	}
+
+	var versionErr *registryartifact.UnsupportedVersionError
+	if errors.As(err, &versionErr) {
+		return nil, &UnsupportedFormatError{URL: endpoint.String(), Version: versionErr.Version}
+	}
+
+	return nil, &ArtifactError{URL: endpoint.String(), Err: err}
 }
 
 func (client *Client) resolveLink(parent *url.URL, href string) (*url.URL, error) {
@@ -627,18 +519,6 @@ func (client *Client) resolveLink(parent *url.URL, href string) (*url.URL, error
 	return resolved, nil
 }
 
-func validateSchemaVersion(endpoint *url.URL, version int) error {
-	if version == 0 {
-		return malformed(endpoint, "schemaVersion is required")
-	}
-
-	if version != registrydist.SchemaVersion {
-		return &UnsupportedFormatError{URL: endpoint.String(), Version: version}
-	}
-
-	return nil
-}
-
 func malformed(endpoint *url.URL, format string, arguments ...any) error {
 	return &ArtifactError{URL: endpoint.String(), Err: fmt.Errorf(format, arguments...)}
 }
@@ -650,20 +530,4 @@ func moduleSummaries(references []moduleReference) []ModuleSummary {
 	}
 
 	return summaries
-}
-
-func validModuleID(id string) bool {
-	owner, name, found := strings.Cut(id, "/")
-
-	return found && moduleSegmentPattern.MatchString(owner) && moduleSegmentPattern.MatchString(name)
-}
-
-func containsVersion(references []versionReference, version string) bool {
-	for _, reference := range references {
-		if reference.summary.Version == version {
-			return true
-		}
-	}
-
-	return false
 }

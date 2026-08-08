@@ -14,7 +14,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/MontFerret/barn/internal/registrydist"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 const (
@@ -31,19 +31,19 @@ type (
 		Files map[string][]byte
 	}
 
-	RootIndex             = registrydist.RootIndex
-	ModuleIndex           = registrydist.ModuleIndex
-	ModuleIndexEntry      = registrydist.ModuleIndexEntry
-	CategoryIndex         = registrydist.CategoryIndex
-	CategoryIndexEntry    = registrydist.CategoryIndexEntry
-	CategoryDocument      = registrydist.CategoryDocument
-	CategorySummary       = registrydist.CategorySummary
-	PluginIndex           = registrydist.PluginIndex
-	ModuleDocument        = registrydist.ModuleDocument
-	ModuleDocumentVersion = registrydist.ModuleDocumentVersion
-	VersionDocument       = registrydist.VersionDocument
-	VersionPackage        = registrydist.VersionPackage
-	VersionSource         = registrydist.VersionSource
+	RootIndex             = registryartifact.RootIndex
+	ModuleIndex           = registryartifact.ModuleIndex
+	ModuleIndexEntry      = registryartifact.ModuleIndexEntry
+	CategoryIndex         = registryartifact.CategoryIndex
+	CategoryIndexEntry    = registryartifact.CategoryIndexEntry
+	CategoryDocument      = registryartifact.CategoryDocument
+	CategorySummary       = registryartifact.CategorySummary
+	PluginIndex           = registryartifact.PluginIndex
+	ModuleDocument        = registryartifact.ModuleDocument
+	ModuleDocumentVersion = registryartifact.ModuleDocumentVersion
+	VersionDocument       = registryartifact.VersionDocument
+	VersionPackage        = registryartifact.VersionPackage
+	VersionSource         = registryartifact.VersionSource
 
 	moduleProjection struct {
 		indexEntry  ModuleIndexEntry
@@ -63,27 +63,27 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	}
 
 	distribution := &Distribution{Files: make(map[string][]byte)}
-	if err := distribution.addJSON("index.json", RootIndex{
-		SchemaVersion: registrydist.SchemaVersion,
+	if err := addArtifactJSON(distribution, "index.json", RootIndex{
+		SchemaVersion: registryartifact.SchemaVersion,
 		Artifacts: map[string]string{
-			"categories": "/categories.json",
-			"modules":    "/modules/index.json",
-			"plugins":    "/plugins/index.json",
+			registryartifact.ArtifactKeyCategories: "/categories.json",
+			registryartifact.ArtifactKeyModules:    "/modules/index.json",
+			registryartifact.ArtifactKeyPlugins:    "/plugins/index.json",
 		},
-	}); err != nil {
+	}, registryartifact.ValidateRootIndex); err != nil {
 		return nil, err
 	}
 
-	if err := distribution.addJSON("plugins/index.json", PluginIndex{
-		SchemaVersion: registrydist.SchemaVersion,
+	if err := addArtifactJSON(distribution, "plugins/index.json", PluginIndex{
+		SchemaVersion: registryartifact.SchemaVersion,
 		Plugins:       make([]json.RawMessage, 0),
-	}); err != nil {
+	}, registryartifact.ValidatePluginIndex); err != nil {
 		return nil, err
 	}
 
 	modules := append([]*Module(nil), registry.Modules...)
 	sort.Slice(modules, func(i, j int) bool { return modules[i].ID() < modules[j].ID() })
-	index := ModuleIndex{SchemaVersion: registrydist.SchemaVersion, Modules: make([]ModuleIndexEntry, 0, len(modules))}
+	index := ModuleIndex{SchemaVersion: registryartifact.SchemaVersion, Modules: make([]ModuleIndexEntry, 0, len(modules))}
 	categories := make(map[string]*categoryAccumulator)
 
 	for _, registryModule := range modules {
@@ -107,12 +107,12 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 		}
 	}
 
-	if err := distribution.addJSON("modules/index.json", index); err != nil {
+	if err := addArtifactJSON(distribution, "modules/index.json", index, registryartifact.ValidateModuleIndex); err != nil {
 		return nil, err
 	}
 
 	categoryIndex := CategoryIndex{
-		SchemaVersion: registrydist.SchemaVersion,
+		SchemaVersion: registryartifact.SchemaVersion,
 		Categories:    make([]CategoryIndexEntry, 0, len(categories)),
 	}
 
@@ -131,16 +131,16 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 			Href:  "/" + categoryPath,
 		})
 
-		if err := distribution.addJSON(categoryPath, CategoryDocument{
-			SchemaVersion: registrydist.SchemaVersion,
+		if err := addArtifactJSON(distribution, categoryPath, CategoryDocument{
+			SchemaVersion: registryartifact.SchemaVersion,
 			Category:      category.summary,
 			Modules:       category.modules,
-		}); err != nil {
+		}, registryartifact.ValidateCategoryDocument); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := distribution.addJSON("categories.json", categoryIndex); err != nil {
+	if err := addArtifactJSON(distribution, "categories.json", categoryIndex, registryartifact.ValidateCategoryIndex); err != nil {
 		return nil, err
 	}
 
@@ -196,7 +196,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 	}
 
 	document := ModuleDocument{
-		SchemaVersion: registrydist.SchemaVersion,
+		SchemaVersion: registryartifact.SchemaVersion,
 		ID:            registryModule.ID(),
 		Owner:         registryModule.Manifest.Owner,
 		Name:          registryModule.Manifest.Name,
@@ -219,7 +219,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 		}
 
 		versionDocument := VersionDocument{
-			SchemaVersion: registrydist.SchemaVersion,
+			SchemaVersion: registryartifact.SchemaVersion,
 			ID:            registryModule.ID(),
 			Version:       version.Record.Version,
 			Description:   version.Manifest.Description,
@@ -234,12 +234,12 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			},
 			Package: VersionPackage{Path: version.PackagePath},
 			Content: map[string]string{
-				"documentation":     "./docs.md",
-				"documentationHtml": "./docs.html",
+				registryartifact.ContentKeyDocumentation:     "./docs.md",
+				registryartifact.ContentKeyDocumentationHTML: "./docs.html",
 			},
 		}
 
-		if err := distribution.addJSON(path.Join(versionPath, "index.json"), versionDocument); err != nil {
+		if err := addArtifactJSON(distribution, path.Join(versionPath, "index.json"), versionDocument, registryartifact.ValidateVersionDocument); err != nil {
 			return moduleProjection{}, err
 		}
 
@@ -252,7 +252,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 		distribution.Files[path.Join(versionPath, "docs.html")] = renderedDocumentation
 	}
 
-	if err := distribution.addJSON(path.Join(modulePath, "index.json"), document); err != nil {
+	if err := addArtifactJSON(distribution, path.Join(modulePath, "index.json"), document, registryartifact.ValidateModuleDocument); err != nil {
 		return moduleProjection{}, err
 	}
 
@@ -305,7 +305,11 @@ func categoryDisplayName(categoryID string) string {
 	return strings.Join(words, " ")
 }
 
-func (distribution *Distribution) addJSON(relativePath string, document any) error {
+func addArtifactJSON[T any](distribution *Distribution, relativePath string, document T, validate func(*T) error) error {
+	if err := validate(&document); err != nil {
+		return fmt.Errorf("validate %s: %w", relativePath, err)
+	}
+
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", relativePath, err)

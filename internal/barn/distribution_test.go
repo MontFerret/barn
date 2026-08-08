@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
@@ -51,6 +52,36 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	if got := sortedDistributionPaths(distribution.Files); !reflect.DeepEqual(got, wantPaths) {
 		t.Fatalf("distribution paths differ:\ngot  %v\nwant %v", got, wantPaths)
 	}
+	assertCanonicalArtifactDocuments(t, distribution, map[string]func([]byte) error{
+		"index.json": func(data []byte) error {
+			_, err := registryartifact.ParseRootIndex(data)
+			return err
+		},
+		"modules/index.json": func(data []byte) error {
+			_, err := registryartifact.ParseModuleIndex(data)
+			return err
+		},
+		"modules/montferret/archive/index.json": func(data []byte) error {
+			_, err := registryartifact.ParseModuleDocument(data)
+			return err
+		},
+		"modules/montferret/archive/versions/1.2.0/index.json": func(data []byte) error {
+			_, err := registryartifact.ParseVersionDocument(data)
+			return err
+		},
+		"categories.json": func(data []byte) error {
+			_, err := registryartifact.ParseCategoryIndex(data)
+			return err
+		},
+		"categories/files.json": func(data []byte) error {
+			_, err := registryartifact.ParseCategoryDocument(data)
+			return err
+		},
+		"plugins/index.json": func(data []byte) error {
+			_, err := registryartifact.ParsePluginIndex(data)
+			return err
+		},
+	})
 
 	var rootIndex RootIndex
 	decodeDistributionJSON(t, distribution, "index.json", &rootIndex)
@@ -131,6 +162,22 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	}
 	if data := string(distribution.Files[versionPath]); strings.Contains(data, "archive/v1.2.0") || strings.Contains(data, sourceManifest.Documentation) || strings.Contains(data, documentation) {
 		t.Fatalf("version document leaks publication or documentation data:\n%s", data)
+	}
+}
+
+func assertCanonicalArtifactDocuments(t *testing.T, distribution *Distribution, parsers map[string]func([]byte) error) {
+	t.Helper()
+
+	for artifactPath, parse := range parsers {
+		data, exists := distribution.Files[artifactPath]
+		if !exists {
+			t.Errorf("artifact %s was not generated", artifactPath)
+			continue
+		}
+
+		if err := parse(data); err != nil {
+			t.Errorf("artifact %s does not satisfy its portable contract: %v", artifactPath, err)
+		}
 	}
 }
 
@@ -506,10 +553,16 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 		if fixture.ferret != "" {
 			manifest.Compatibility = &modulemanifest.Compatibility{Ferret: fixture.ferret}
 		}
+		packagePath := "example.org/fixtures/" + name
+		major, _, _ := strings.Cut(fixture.version, ".")
+		if major != "0" && major != "1" {
+			packagePath += "/v" + major
+		}
+
 		versions = append(versions, &Version{
 			Record:        stampedTestVersion(fixture.version, "v"+fixture.version, testCommit[:39]+string(rune('0'+index))),
 			Manifest:      manifest,
-			PackagePath:   "example.org/fixtures/" + name,
+			PackagePath:   packagePath,
 			Documentation: []byte("# " + fixture.version + "\n"),
 		})
 	}

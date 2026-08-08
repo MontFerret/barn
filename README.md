@@ -81,8 +81,8 @@ stable heading anchors. Relative Markdown links are resolved against the
 manifest's explicit documentation URL. Barn does not fetch that URL or try
 alternative documentation filenames.
 
-Barn consumes the Registry v1 and Module Manifest v1 contracts from
-`github.com/MontFerret/specs`; it does not redefine those models.
+Barn consumes the Registry v1, Module Manifest v1, and generated Registry
+artifact v1 contracts from `github.com/MontFerret/specs`.
 
 ## Public Go API
 
@@ -92,7 +92,10 @@ Barn exposes two reusable packages for CLIs and other Go tooling:
   distribution. It discovers artifact links from the root index, so callers do
   not construct paths inside `dist/`. Version records expose the validated
   package path as `Version.Package.Path` and absolute content artifact URLs;
-  version summaries expose their immutable `PublishedAt` time.
+  version summaries expose their immutable `PublishedAt` time. Wire parsing and
+  same-document validation use the portable artifact contracts from specs;
+  transport, same-origin navigation, and cross-document consistency remain
+  client responsibilities.
 - `github.com/MontFerret/barn/pkg/publish` validates a tagged module release and
   prepares the Barn source records for a Git pull request. It does not write the
   records, upload a package, or call a Git hosting API.
