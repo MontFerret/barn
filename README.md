@@ -154,30 +154,51 @@ either repository.
 
 ## Registering a module
 
-Module registration is currently a manual, pull-request-based process. Barn
-does not yet provide an end-user CLI that creates or submits registrations;
-that support will come later. To publish a module or a new version, fork this
-repository, create a branch with the registry changes described below, and
-open a pull request.
+Ferret modules are published to Barn through pull requests. The Ferret CLI prepares the registry records for you and validates the release against its public source repository.
 
-Before registering a release, make sure that:
+Before publishing, make sure your module:
 
-- the source repository is public and supports anonymous HTTPS Git access;
-- the release tag and its target commit have been pushed to that repository;
-- a valid `ferret.yaml` exists at the repository root, or at the optional
-  module source path in a monorepo;
-- a valid `go.mod` exists beside `ferret.yaml`, and its module directive is
-  compatible with the release version;
-- a `README.md` containing the release documentation exists beside that
-  `ferret.yaml`;
-- the manifest's `name` is the `<owner>/<module>` being registered and its
-  `version` is the exact release version; and
-- the version record uses the full lowercase commit hash to which the tag
-  resolves. From a local clone of the source repository, obtain it with
-  `git rev-parse 'v1.2.3^{commit}'`, replacing `v1.2.3` with the release tag.
+- has a valid `ferret.yaml` and `go.mod`;
+- includes its release documentation in `README.md`;
+- is committed to a public Git repository that supports anonymous HTTPS access; and
+- has its release tag pushed to that repository.
 
-For a module's first registration, create its directory, registry manifest,
-and first version record:
+From the module directory, run:
+
+```sh
+ferret mod publish
+```
+
+The command validates the module and its release, resolves the pushed tag to its exact commit, checks the public Ferret registry, and prints the Barn records that need to be submitted.
+
+By default, Ferret expects the release tag to be:
+
+- `v<version>` for a standalone module; or
+- `<module-directory>/v<version>` for a module inside a monorepo.
+
+For example:
+
+```text
+v1.2.3
+```
+
+or:
+
+```text
+modules/http/v1.2.3
+```
+
+If your repository uses a different tag, specify it explicitly:
+
+```sh
+ferret mod publish --tag <tag>
+```
+
+### Submitting the registration
+
+Fork the Barn repository, create a branch, and add the records produced by `ferret mod publish`.
+
+For a module's first release, the CLI produces both its module manifest and version record:
 
 ```text
 registry/modules/acme/http/
@@ -186,66 +207,31 @@ registry/modules/acme/http/
     v1.2.3.json
 ```
 
-The registry manifest identifies the module and its Git source:
+For subsequent releases, only a new version record is required:
 
-```json
-{
-  "$schema": "https://schemas.ferretlang.org/registry/module/v1.json",
-  "owner": "acme",
-  "name": "http",
-  "source": {
-    "repository": "https://github.com/acme/ferret-modules",
-    "path": "modules/http"
-  }
-}
+```text
+registry/modules/acme/http/versions/v1.3.0.json
 ```
 
-The directory names must use canonical lowercase spelling and match `owner` and
-`name` exactly. Omit `source.path` when `ferret.yaml` is at the repository root;
-otherwise it must be a normalized repository-relative path to the module
-directory.
+Use the records exactly as produced by the CLI. Do not edit previously published module manifests or version records.
 
-The version record pins the release tag to its exact commit:
+Do not add `publishedAt` yourself. Barn assigns the publication timestamp after a version first enters the registry, and contributor-supplied timestamps are rejected.
 
-```json
-{
-  "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
-  "version": "1.2.3",
-  "tag": "v1.2.3",
-  "commit": "0123456789abcdef0123456789abcdef01234567"
-}
-```
-
-Do not add `publishedAt` to a publication pull request. Barn adds it after the
-version first enters the registry; contributor-supplied timestamps are rejected.
-
-Name the file `v<version>.json`; the filename above is therefore
-`v1.2.3.json`, while the JSON `version` value is `1.2.3`. Replace the example
-tag and commit with the published release's exact values. Tags may be
-lightweight or annotated, but they must resolve to the declared commit.
-
-When registering another version of an existing module, add only the new file
-under its `versions/` directory. Do not edit the module manifest or any
-previously published version record.
-
-After adding the source records, check the repository:
+Before opening the pull request, run:
 
 ```sh
 make check
 ```
 
-Commit only the registration records, then open a pull request. Do not create,
-edit, or commit anything under `dist/`, and do not add entries under
-`registry/plugins/`; plugin registration is not supported yet.
+Commit only the registration records. Do not create, edit, or commit anything under `dist/`, and do not add entries under `registry/plugins/`; plugin registration is not supported yet.
 
-CI validates the registry, verifies that each tag resolves to its pinned
-commit, checks the `ferret.yaml` identity and version, snapshots `README.md`,
-and generates and verifies the complete `dist/` hierarchy. Pull-request output
-is discarded. After a version reaches `main`, the publication workflow stamps
-its canonical record and dispatches CI for the resulting commit; only a fully
-stamped registry is deployed to the GitHub Pages site root. Published module
-sources, version identities, and assigned timestamps are immutable after that
-transition.
+### What happens after submission
+
+Barn CI validates the registration against the module's public source repository. It verifies the release tag and pinned commit, validates the module manifest and version, snapshots the release documentation, and generates the registry artifacts used by the public Ferret Registry.
+
+Pull-request-generated artifacts are discarded.
+
+After the pull request is merged, Barn assigns the release's publication timestamp and regenerates the registry from the canonical records on `main`. Published module sources, version identities, and assigned timestamps are immutable.
 
 ## Development
 
