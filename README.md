@@ -1,4 +1,4 @@
-# Ferret Barn
+# Barn
 
 Barn is the Git-backed Ferret Registry. Human-reviewed registration source
 records live under `registry/`; Barn compiles them into a deterministic,
