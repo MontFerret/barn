@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'registry/modules/*/*/versions/*.json'
   workflow_dispatch:
 
 permissions:
@@ -60,7 +62,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.BARN_PUBLISHER_APP_ID }}
+          app-id: ${{ secrets.BARN_PUBLISHER_APP_ID }}
           private-key: ${{ secrets.BARN_PUBLISHER_PRIVATE_KEY }}
           permission-contents: write
 

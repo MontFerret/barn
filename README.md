@@ -399,9 +399,10 @@ Maintainers must complete this setup before merging an unstamped publication:
 1. Create a GitHub App named `Ferret Barn Publisher` with only the repository
    permission `Contents: Read and write`.
 2. Install the App only on `MontFerret/barn`.
-3. Store its App ID as the repository variable `BARN_PUBLISHER_APP_ID`.
-4. Store its private key as the repository Actions secret
-   `BARN_PUBLISHER_PRIVATE_KEY`.
+3. Store its App ID as the organization Actions secret
+   `BARN_PUBLISHER_APP_ID`, with access limited to `MontFerret/barn`.
+4. Store its private key as the organization Actions secret
+   `BARN_PUBLISHER_PRIVATE_KEY`, with the same repository restriction.
 5. Add `Ferret Barn Publisher` to the `main` branch ruleset bypass list with
    `Always allow`.
 
@@ -411,6 +412,11 @@ records, uses that token for the direct push, and does not fall back to another
 credential if token creation or the ruleset bypass fails. Pull request CI does
 not reference or receive the Publisher credentials. Never commit the App private
 key or a generated installation token.
+
+Automatic stamping runs only when a push to `main` changes a canonical module
+version record under `registry/modules/<owner>/<module>/versions/`. Unrelated
+pushes do not retry a failed publication; after correcting Publisher
+configuration, use the workflow's manual dispatch to resume pending stamping.
 
 `Ferret Release Bot` remains a separate release-oriented identity. Do not reuse
 its App ID or private key, widen its permissions, or assign Barn publication
