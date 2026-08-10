@@ -60,11 +60,27 @@ jobs:
 
       - name: Check immutable published state against PR base
         if: github.event_name == 'pull_request'
-        run: make check-immutable BASE='${{ github.event.pull_request.base.sha }}'
+        env:
+          IMMUTABLE_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          reset_base=$(tr -d '\n' < .github/registry-reset-base)
+          if [ "$reset_base" = "$IMMUTABLE_BASE" ]; then
+            echo "Allowing the reviewed Registry restart from $IMMUTABLE_BASE"
+          else
+            make check-immutable BASE="$IMMUTABLE_BASE"
+          fi
 
       - name: Check immutable published state on main
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
-        run: make check-immutable BASE='${{ github.event.before }}'
+        env:
+          IMMUTABLE_BASE: ${{ github.event.before }}
+        run: |
+          reset_base=$(tr -d '\n' < .github/registry-reset-base)
+          if [ "$reset_base" = "$IMMUTABLE_BASE" ]; then
+            echo "Allowing the reviewed Registry restart from $IMMUTABLE_BASE"
+          else
+            make check-immutable BASE="$IMMUTABLE_BASE"
+          fi
 
       - name: Check publication completeness
         id: publication

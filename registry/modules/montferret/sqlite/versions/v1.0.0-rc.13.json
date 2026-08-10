@@ -1,0 +1,6 @@
+{
+  "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
+  "version": "1.0.0-rc.13",
+  "tag": "modules/db/sqlite/v1.0.0-rc.13",
+  "commit": "6392e9a9fbda721c9176b8a16ff506ee92050995"
+}
