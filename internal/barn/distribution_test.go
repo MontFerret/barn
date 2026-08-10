@@ -35,7 +35,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	distribution, err := GenerateDistribution(registry)
+	distribution, err := GenerateDistribution(registry, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 
 	var rootIndex RootIndex
 	decodeDistributionJSON(t, distribution, "index.json", &rootIndex)
-	if rootIndex.SchemaVersion != 1 || !reflect.DeepEqual(rootIndex.Artifacts, map[string]string{
+	if rootIndex.SchemaVersion != 1 || rootIndex.Source.Commit != testCommit || !reflect.DeepEqual(rootIndex.Artifacts, map[string]string{
 		"categories": "/categories.json",
 		"modules":    "/modules/index.json",
 		"plugins":    "/plugins/index.json",
@@ -227,11 +227,11 @@ func TestGenerateDistributionDeterministicOrderingAndLatest(t *testing.T) {
 		version: "2.0.0-beta.2", namespace: "BROWSER", description: "Browser beta.", ferret: "^2.0.0",
 	}})
 	registry := &Registry{Modules: []*Module{archive, browser}}
-	first, err := GenerateDistribution(registry)
+	first, err := GenerateDistribution(registry, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := GenerateDistribution(registry)
+	second, err := GenerateDistribution(registry, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,11 +289,11 @@ func TestGenerateDistributionCategoryIndexes(t *testing.T) {
 	}})
 	registry := &Registry{Modules: []*Module{article, browser, archive}}
 
-	first, err := GenerateDistribution(registry)
+	first, err := GenerateDistribution(registry, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := GenerateDistribution(registry)
+	second, err := GenerateDistribution(registry, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestGenerateDistributionCategoriesFollowCurrentMetadataVersion(t *testing.T
 		{version: "2.0.0-beta.1", namespace: "ARCHIVE_NEXT", description: "Next.", categories: []string{"future"}},
 		{version: "1.0.0", namespace: "ARCHIVE", description: "Stable.", categories: []string{"archives"}},
 	})
-	distribution, err := GenerateDistribution(&Registry{Modules: []*Module{initial}})
+	distribution, err := GenerateDistribution(&Registry{Modules: []*Module{initial}}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func TestGenerateDistributionCategoriesFollowCurrentMetadataVersion(t *testing.T
 		{version: "2.0.0-beta.1", namespace: "ARCHIVE_NEXT", description: "Next.", categories: []string{"future"}},
 		{version: "1.0.0", namespace: "ARCHIVE", description: "Stable.", categories: []string{"archives"}},
 	})
-	distribution, err = GenerateDistribution(&Registry{Modules: []*Module{updated}})
+	distribution, err = GenerateDistribution(&Registry{Modules: []*Module{updated}}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +402,7 @@ func TestGenerateDistributionRejectsInvalidCategoryIDs(t *testing.T) {
 				version: "1.0.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{categoryID},
 			}})
 
-			_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+			_, err := GenerateDistribution(&Registry{Modules: []*Module{module}}, testCommit)
 			if err == nil || !strings.Contains(err.Error(), "montferret/archive@1.0.0") || !strings.Contains(err.Error(), categoryIDPatternText) {
 				t.Fatalf("expected contextual category validation error for %q, got %v", categoryID, err)
 			}
@@ -430,7 +430,7 @@ func TestGenerateDistributionRejectsCaseVariantIdentities(t *testing.T) {
 				version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
 			}})
 
-			distribution, err := GenerateDistribution(&Registry{Modules: []*Module{canonical, variant}})
+			distribution, err := GenerateDistribution(&Registry{Modules: []*Module{canonical, variant}}, testCommit)
 			if err == nil {
 				t.Fatal("expected case-variant identity to be rejected")
 			}
@@ -442,12 +442,12 @@ func TestGenerateDistributionRejectsCaseVariantIdentities(t *testing.T) {
 }
 
 func TestDistributionRootAndEmptyIndexes(t *testing.T) {
-	distribution, err := GenerateDistribution(&Registry{})
+	distribution, err := GenerateDistribution(&Registry{}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wantRoot := "{\n  \"schemaVersion\": 1,\n  \"artifacts\": {\n    \"categories\": \"/categories.json\",\n    \"modules\": \"/modules/index.json\",\n    \"plugins\": \"/plugins/index.json\"\n  }\n}\n"
+	wantRoot := "{\n  \"schemaVersion\": 1,\n  \"source\": {\n    \"commit\": \"0123456789abcdef0123456789abcdef01234567\"\n  },\n  \"artifacts\": {\n    \"categories\": \"/categories.json\",\n    \"modules\": \"/modules/index.json\",\n    \"plugins\": \"/plugins/index.json\"\n  }\n}\n"
 	if got := string(distribution.Files["index.json"]); got != wantRoot {
 		t.Fatalf("root index differs:\n%s", got)
 	}
@@ -467,7 +467,7 @@ func TestDistributionRootAndEmptyIndexes(t *testing.T) {
 
 func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 	root := t.TempDir()
-	distribution, err := GenerateDistribution(&Registry{})
+	distribution, err := GenerateDistribution(&Registry{}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 	if err := os.Remove(pluginIndexPath); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/plugins/index.json is missing") {
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "plugins/index.json is missing") {
 		t.Fatalf("expected missing file error, got %v", err)
 	}
 	if err := WriteDistribution(root, distribution); err != nil {
@@ -499,7 +499,7 @@ func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 	if err := os.WriteFile(rootIndexPath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/index.json is stale") {
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "index.json is stale") {
 		t.Fatalf("expected stale distribution error, got %v", err)
 	}
 
@@ -513,7 +513,7 @@ func TestDistributionWriteReplacementAndVerification(t *testing.T) {
 	if err := os.WriteFile(extraPath, []byte("{}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "dist/categories/stale.json is unexpected") {
+	if err := VerifyDistribution(root, distribution); err == nil || !strings.Contains(err.Error(), "categories/stale.json is unexpected") {
 		t.Fatalf("expected unexpected file error, got %v", err)
 	}
 
@@ -533,7 +533,7 @@ func TestDistributionReplacementRemovesStaleCategoryArtifacts(t *testing.T) {
 	legacy := distributionTestModule("montferret", "archive", []distributionTestVersion{{
 		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{"legacy"},
 	}})
-	initial, err := GenerateDistribution(&Registry{Modules: []*Module{legacy}})
+	initial, err := GenerateDistribution(&Registry{Modules: []*Module{legacy}}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,7 +549,7 @@ func TestDistributionReplacementRemovesStaleCategoryArtifacts(t *testing.T) {
 	current := distributionTestModule("montferret", "archive", []distributionTestVersion{{
 		version: "1.1.0", namespace: "ARCHIVE", description: "Archives.", categories: []string{"current"},
 	}})
-	replacement, err := GenerateDistribution(&Registry{Modules: []*Module{current}})
+	replacement, err := GenerateDistribution(&Registry{Modules: []*Module{current}}, testCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,13 +568,36 @@ func TestDistributionReplacementRemovesStaleCategoryArtifacts(t *testing.T) {
 	}
 }
 
+func TestDistributionWriteFailurePreservesExistingTree(t *testing.T) {
+	destination := filepath.Join(t.TempDir(), "published")
+	initial, err := GenerateDistribution(&Registry{}, testCommit)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := WriteDistributionPath(destination, initial); err != nil {
+		t.Fatal(err)
+	}
+
+	invalid := &Distribution{Files: map[string][]byte{
+		"../outside.json": []byte("{}\n"),
+	}}
+	if err := WriteDistributionPath(destination, invalid); err == nil {
+		t.Fatal("expected invalid staged distribution to fail")
+	}
+
+	if err := VerifyDistributionPath(destination, initial); err != nil {
+		t.Fatalf("failed replacement changed existing tree: %v", err)
+	}
+}
+
 func TestGenerateDistributionRequiresResolvedDocumentation(t *testing.T) {
 	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
 		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
 	}})
 	module.Versions[0].Documentation = nil
 
-	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}}, testCommit)
 	if err == nil || !strings.Contains(err.Error(), "documentation has not been resolved") {
 		t.Fatalf("expected unresolved documentation error, got %v", err)
 	}
@@ -586,7 +609,7 @@ func TestGenerateDistributionRequiresResolvedPackage(t *testing.T) {
 	}})
 	module.Versions[0].PackagePath = ""
 
-	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}}, testCommit)
 	if err == nil || !strings.Contains(err.Error(), "package has not been resolved") {
 		t.Fatalf("expected unresolved package error, got %v", err)
 	}
@@ -598,7 +621,7 @@ func TestGenerateDistributionRequiresResolvedAPIReference(t *testing.T) {
 	}})
 	module.Versions[0].API = nil
 
-	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}}, testCommit)
 	if err == nil || !strings.Contains(err.Error(), "API Reference has not been resolved") {
 		t.Fatalf("expected unresolved API Reference error, got %v", err)
 	}
@@ -610,7 +633,7 @@ func TestGenerateDistributionRequiresPublicationStamp(t *testing.T) {
 	}})
 	module.Versions[0].Record.PublishedAt = nil
 
-	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}}, testCommit)
 	if err == nil || !strings.Contains(err.Error(), "has not been publication-stamped") {
 		t.Fatalf("expected missing publication timestamp error, got %v", err)
 	}

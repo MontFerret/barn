@@ -29,6 +29,7 @@ type (
 		PackagePath   string
 		Documentation []byte
 		API           *api.Reference
+		Artifacts     map[string][]byte
 	}
 )
 

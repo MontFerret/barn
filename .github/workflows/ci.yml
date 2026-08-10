@@ -6,6 +6,12 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_rebuild:
+        description: Rebuild every published release instead of reusing gh-pages
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -73,31 +79,65 @@ jobs:
         if: github.event_name == 'pull_request' && steps.publication.outputs.ready != 'true'
         run: make stamp STAMP_TIMESTAMP='2000-01-01T00:00:00Z'
 
-      - name: Generate distribution
+      - name: Check out published distribution
+        id: published
         if: github.event_name == 'pull_request' || steps.publication.outputs.ready == 'true'
-        run: make generate
+        run: |
+          destination="$RUNNER_TEMP/published-registry"
+          if git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null; then
+            git fetch origin gh-pages:refs/remotes/origin/gh-pages
+            git worktree add --detach "$destination" refs/remotes/origin/gh-pages
+            echo "path=$destination" >> "$GITHUB_OUTPUT"
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
+            echo 'path=' >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Verify deterministic distribution
+      - name: Generate and validate Pages candidate
+        id: candidate
         if: github.event_name == 'pull_request' || steps.publication.outputs.ready == 'true'
-        run: make verify
+        env:
+          FULL_REBUILD: ${{ inputs.full_rebuild || false }}
+          PREVIOUS: ${{ steps.published.outputs.path }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          mode=auto
+          if [ "$FULL_REBUILD" = 'true' ]; then
+            mode=full
+          fi
+          destination="$RUNNER_TEMP/registry-pages-candidate"
+          make generate-pages MODE="$mode" SOURCE_COMMIT="$SOURCE_COMMIT" PREVIOUS="$PREVIOUS" OUTPUT="$destination"
+          make verify-pages SOURCE_COMMIT="$SOURCE_COMMIT" OUTPUT="$destination"
+          echo "path=$destination" >> "$GITHUB_OUTPUT"
 
-  deploy:
-    name: Deploy distribution
+      - name: Upload publication candidate
+        if: github.ref == 'refs/heads/main' && steps.publication.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-pages-candidate
+          path: ${{ steps.candidate.outputs.path }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish gh-pages
     if: github.ref == 'refs/heads/main' && needs.validate.outputs.publication-ready == 'true'
     needs:
       - validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -106,17 +146,76 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Generate distribution
-        run: make generate
-
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
+      - name: Download publication candidate
+        uses: actions/download-artifact@v5
         with:
-          path: dist
+          name: registry-pages-candidate
+          path: ${{ runner.temp }}/registry-pages-candidate
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Revalidate publication candidate
+        run: make verify-pages SOURCE_COMMIT='${{ github.sha }}' OUTPUT='${{ runner.temp }}/registry-pages-candidate'
+
+      - name: Generate Barn Publisher token
+        id: barn-publisher
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BARN_PUBLISHER_APP_ID }}
+          private-key: ${{ secrets.BARN_PUBLISHER_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Resolve Barn Publisher identity
+        id: barn-publisher-identity
+        env:
+          GH_TOKEN: ${{ steps.barn-publisher.outputs.token }}
+          PUBLISHER_SLUG: ${{ steps.barn-publisher.outputs.app-slug }}
+        run: |
+          user_id=$(gh api "/users/${PUBLISHER_SLUG}[bot]" --jq '.id')
+          echo "user-id=$user_id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify source branch is current
+        env:
+          GH_TOKEN: ${{ steps.barn-publisher.outputs.token }}
+        run: |
+          gh auth setup-git
+          git fetch origin main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = '${{ github.sha }}'
+
+      - name: Prepare gh-pages worktree
+        env:
+          CANDIDATE: ${{ runner.temp }}/registry-pages-candidate
+          GH_TOKEN: ${{ steps.barn-publisher.outputs.token }}
+        run: |
+          destination="$RUNNER_TEMP/gh-pages"
+          if git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null; then
+            git fetch origin gh-pages:refs/remotes/origin/gh-pages
+            git worktree add --detach "$destination" refs/remotes/origin/gh-pages
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
+            git worktree add --detach "$destination" HEAD
+            git -C "$destination" switch --orphan gh-pages
+          fi
+          git -C "$destination" rm -r --ignore-unmatch .
+          git -C "$destination" clean -fdx
+          cp -R "$CANDIDATE/." "$destination/"
+          echo "PUBLISHED_PATH=$destination" >> "$GITHUB_ENV"
+
+      - name: Commit publication candidate
+        run: |
+          git -C "$PUBLISHED_PATH" config user.name '${{ steps.barn-publisher.outputs.app-slug }}[bot]'
+          git -C "$PUBLISHED_PATH" config user.email '${{ steps.barn-publisher-identity.outputs.user-id }}+${{ steps.barn-publisher.outputs.app-slug }}[bot]@users.noreply.github.com'
+          git -C "$PUBLISHED_PATH" add --all
+          if git -C "$PUBLISHED_PATH" diff --cached --quiet; then
+            echo 'PUBLISHED_CHANGED=false' >> "$GITHUB_ENV"
+          else
+            git -C "$PUBLISHED_PATH" commit -m 'Publish registry from ${{ github.sha }}'
+            echo 'PUBLISHED_CHANGED=true' >> "$GITHUB_ENV"
+          fi
+
+      - name: Push gh-pages
+        if: env.PUBLISHED_CHANGED == 'true'
+        env:
+          GH_TOKEN: ${{ steps.barn-publisher.outputs.token }}
+        run: git -C "$PUBLISHED_PATH" push origin HEAD:gh-pages

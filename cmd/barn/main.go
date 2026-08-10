@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/MontFerret/barn/internal/barn"
@@ -23,7 +24,7 @@ func main() {
 
 func run(ctx context.Context, arguments []string) error {
 	if len(arguments) == 0 {
-		return fmt.Errorf("usage: barn <validate|generate|verify|check-immutable|stamp> [options]")
+		return fmt.Errorf("usage: barn <validate|generate|verify|verify-tree|check-immutable|stamp> [options]")
 	}
 
 	command := arguments[0]
@@ -32,6 +33,10 @@ func run(ctx context.Context, arguments []string) error {
 	base := flags.String("base", "", "base Git object for immutability validation")
 	timestamp := flags.String("timestamp", "", "publication timestamp for stamp (defaults to the current UTC time)")
 	check := flags.Bool("check", false, "report whether all versions are stamped without modifying files")
+	mode := flags.String("mode", string(barn.GenerationModeFull), "generation mode: full, auto, or incremental")
+	sourceCommit := flags.String("source-commit", "HEAD", "authoritative source Git revision recorded in the root index")
+	previous := flags.String("previous", "", "existing published artifact tree used for incremental generation")
+	output := flags.String("output", "", "generated artifact destination (defaults to <root>/dist)")
 
 	if err := flags.Parse(arguments[1:]); err != nil {
 		return err
@@ -72,27 +77,39 @@ func run(ctx context.Context, arguments []string) error {
 		return err
 	}
 
-	if command != "validate" && command != "generate" && command != "verify" {
+	if command != "validate" && command != "generate" && command != "verify" && command != "verify-tree" {
 		return fmt.Errorf("unknown command %q", command)
 	}
 
-	registry, err := barn.Validate(ctx, *root, barn.GitInspector{})
-	if err != nil {
-		return err
+	destination := *output
+	if destination == "" {
+		destination = filepath.Join(*root, "dist")
+	}
+
+	if command == "verify-tree" {
+		return barn.ValidateDistributionTree(ctx, *root, destination, *sourceCommit)
 	}
 
 	if command == "validate" {
-		return nil
+		_, err := barn.Validate(ctx, *root, barn.GitInspector{})
+
+		return err
 	}
 
-	distribution, err := barn.GenerateDistribution(registry)
+	result, err := barn.BuildDistribution(ctx, barn.GenerationOptions{
+		Root:         *root,
+		Previous:     *previous,
+		SourceCommit: *sourceCommit,
+		Mode:         barn.GenerationMode(*mode),
+		Inspector:    barn.GitInspector{},
+	})
 	if err != nil {
 		return err
 	}
 
 	if command == "generate" {
-		return barn.WriteDistribution(*root, distribution)
+		return barn.WriteDistributionPath(destination, result.Distribution)
 	}
 
-	return barn.VerifyDistribution(*root, distribution)
+	return barn.VerifyDistributionPath(destination, result.Distribution)
 }

@@ -5,10 +5,14 @@ GOFMT ?= gofmt
 PACKAGES ?= ./...
 BASE ?=
 STAMP_TIMESTAMP ?=
+MODE ?= auto
+SOURCE_COMMIT ?= HEAD
+PREVIOUS ?=
+OUTPUT ?=
 
 GO_FILES := $(shell find . -type f -name '*.go' -not -path './vendor/*' | sort)
 
-.PHONY: check build test test-race vet fmt fmt-check tidy mod-check validate generate verify check-immutable stamp check-stamped help
+.PHONY: check build test test-race vet fmt fmt-check tidy mod-check validate generate verify generate-pages verify-pages check-immutable stamp check-stamped help
 
 check: fmt-check vet test validate ## Run all local source and registry checks.
 
@@ -44,10 +48,20 @@ validate: ## Validate the complete registry and pinned releases.
 	$(GO) run ./cmd/barn validate
 
 generate: ## Generate the complete public distribution under dist/.
-	$(GO) run ./cmd/barn generate
+	$(GO) run ./cmd/barn generate --mode full --source-commit "$(SOURCE_COMMIT)"
 
 verify: ## Verify the complete generated dist/ tree is current.
-	$(GO) run ./cmd/barn verify
+	$(GO) run ./cmd/barn verify --mode full --source-commit "$(SOURCE_COMMIT)"
+
+generate-pages: ## Generate a validated Pages candidate, reusing PREVIOUS in auto/incremental mode.
+	@test -n "$(OUTPUT)" || { printf 'OUTPUT is required\n' >&2; exit 2; }
+	$(GO) run ./cmd/barn generate --mode "$(MODE)" --source-commit "$(SOURCE_COMMIT)" --output "$(OUTPUT)" $(if $(PREVIOUS),--previous "$(PREVIOUS)")
+	./scripts/add-pages-metadata.sh "$(OUTPUT)"
+
+verify-pages: ## Validate an existing Pages candidate without remote release enrichment.
+	@test -n "$(OUTPUT)" || { printf 'OUTPUT is required\n' >&2; exit 2; }
+	$(GO) run ./cmd/barn verify-tree --source-commit "$(SOURCE_COMMIT)" --output "$(OUTPUT)"
+	./scripts/add-pages-metadata.sh "$(OUTPUT)" check
 
 check-immutable: ## Check published records against BASE.
 	@test -n "$(BASE)" || { printf 'BASE is required\n' >&2; exit 2; }
