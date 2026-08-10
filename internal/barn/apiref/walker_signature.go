@@ -1,11 +1,13 @@
 package apiref
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
 
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
+	"github.com/MontFerret/specs/pkg/api"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -49,7 +51,7 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 		return signatureRecord{}, w.source.errorAt(ErrorUnsupportedRegistration, original.Pos(), "registered variadic function must expose exactly one Ferret variadic parameter")
 	}
 
-	fallback := make([]registryartifact.APIParameter, 0, count)
+	fallback := make([]api.Parameter, 0, count)
 
 	for index := start; index < parameters.Len(); index++ {
 		name := parameters.At(index).Name()
@@ -58,44 +60,60 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 			name = "arg" + strconvItoa(index-start+1)
 		}
 
-		fallback = append(fallback, registryartifact.APIParameter{Name: name})
+		fallback = append(fallback, api.Parameter{Name: name})
 	}
 
-	documentation := documentationMetadata{}
+	documentation := api.Documentation{}
+	body := documentationBody{}
 
 	if declaration != nil && declaration.decl.Doc != nil {
-		documentation, err = parseDocumentation(declaration.decl)
+		body = normalizeDocumentation(declaration.decl.Doc)
+		documentation, err = api.ParseDocumentation(body.text)
 		if err != nil {
-			parseErr, ok := err.(*documentationParseError)
-			if !ok {
+			var documentationErr *api.DocumentationError
+			if !errors.As(err, &documentationErr) {
 				return signatureRecord{}, w.source.errorAt(ErrorInternal, declaration.decl.Pos(), fmt.Sprintf("parse declaration documentation: %v", err))
 			}
 
-			return signatureRecord{}, w.source.errorAt(ErrorInvalidDocumentation, parseErr.position, parseErr.Error())
+			position := body.position(documentationErr.Line)
+			if position == token.NoPos {
+				position = declaration.decl.Pos()
+			}
+
+			return signatureRecord{}, w.source.errorAt(
+				ErrorInvalidDocumentation,
+				position,
+				fmt.Sprintf("%s: %v", declaration.decl.Name.Name, documentationErr),
+			)
 		}
 	}
 
 	resolvedParameters := fallback
 
-	if len(documentation.parameters) > 0 {
-		if !variadic && len(documentation.parameters) != count {
+	if len(documentation.Parameters) > 0 {
+		if !variadic && len(documentation.Parameters) != count {
+			position := body.annotationPosition("@param")
+			if position == token.NoPos {
+				position = declaration.decl.Pos()
+			}
+
 			return signatureRecord{}, w.source.errorAt(
 				ErrorInvalidDocumentation,
-				documentation.parameterPosition,
-				fmt.Sprintf("%s: documented parameter count %d does not match fixed Ferret arity %d", declaration.decl.Name.Name, len(documentation.parameters), count),
+				position,
+				fmt.Sprintf("%s: documented parameter count %d does not match fixed Ferret arity %d", declaration.decl.Name.Name, len(documentation.Parameters), count),
 			)
 		}
 
-		resolvedParameters = documentation.parameters
+		resolvedParameters = documentation.Parameters
 	}
 
 	return signatureRecord{
 		parameters:  resolvedParameters,
 		variadic:    variadic,
-		description: documentation.description,
-		returnValue: documentation.returnValue,
-		throws:      documentation.throws,
-		deprecated:  documentation.deprecated,
+		description: documentation.Description,
+		returnValue: documentation.Return,
+		throws:      documentation.Throws,
+		deprecated:  documentation.Deprecated,
 	}, nil
 }
 

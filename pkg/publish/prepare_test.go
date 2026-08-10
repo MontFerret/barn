@@ -14,9 +14,9 @@ import (
 	"github.com/MontFerret/barn/internal/barn"
 	"github.com/MontFerret/barn/internal/barn/apiref"
 	registryclient "github.com/MontFerret/barn/pkg/registry"
+	"github.com/MontFerret/specs/pkg/api"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 	"github.com/MontFerret/specs/pkg/validation"
 )
 
@@ -318,16 +318,16 @@ type fakeInspector struct {
 
 type publishFixtureAnalyzer struct{}
 
-func (publishFixtureAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*registryartifact.APIReference, error) {
-	return &registryartifact.APIReference{
-		SchemaVersion: registryartifact.SchemaVersion,
+func (publishFixtureAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*api.Reference, error) {
+	return &api.Reference{
+		SchemaVersion: api.SchemaVersion,
 		ID:            moduleID,
 		Version:       version,
-		Namespaces: []registryartifact.APINamespace{{
+		Namespaces: []api.Namespace{{
 			Name: "ARCHIVE",
-			Functions: []registryartifact.APIFunction{{
+			Functions: []api.Function{{
 				Name:       "OPEN",
-				Signatures: []registryartifact.APIFunctionSignature{{Parameters: []registryartifact.APIParameter{}}},
+				Signatures: []api.Signature{{Parameters: []api.Parameter{}}},
 			}},
 		}},
 	}, nil

@@ -2,9 +2,9 @@
 package barn
 
 import (
+	"github.com/MontFerret/specs/pkg/api"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 type (
@@ -28,7 +28,7 @@ type (
 		Manifest      *modulemanifest.Manifest
 		PackagePath   string
 		Documentation []byte
-		API           *registryartifact.APIReference
+		API           *api.Reference
 	}
 )
 

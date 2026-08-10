@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/MontFerret/specs v1.6.0
+	github.com/MontFerret/specs v1.7.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/yuin/goldmark v1.8.5
 	golang.org/x/mod v0.38.0

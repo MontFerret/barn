@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MontFerret/specs/pkg/api"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 const (
@@ -261,24 +261,24 @@ func fixtureResolver(directory string) RepositoryResolver {
 
 type fixtureAPIAnalyzer struct{}
 
-func (fixtureAPIAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*registryartifact.APIReference, error) {
-	return &registryartifact.APIReference{
-		SchemaVersion: registryartifact.SchemaVersion,
+func (fixtureAPIAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*api.Reference, error) {
+	return &api.Reference{
+		SchemaVersion: api.SchemaVersion,
 		ID:            moduleID,
 		Version:       version,
-		Namespaces: []registryartifact.APINamespace{{
+		Namespaces: []api.Namespace{{
 			Name: "FIXTURE",
-			Functions: []registryartifact.APIFunction{{
+			Functions: []api.Function{{
 				Name: "RUN",
-				Signatures: []registryartifact.APIFunctionSignature{{
-					Parameters: []registryartifact.APIParameter{{
+				Signatures: []api.Signature{{
+					Parameters: []api.Parameter{{
 						Name:        "data",
 						Type:        "String|Binary",
 						Description: "Source content.",
 					}},
 					Description: "Run processes source content.",
-					Return:      &registryartifact.APIReturn{Type: "Object", Description: "Processed content."},
-					Throws:      []registryartifact.APIThrownError{{Error: "ParseError", Description: "Source content is malformed."}},
+					Return:      &api.Return{Type: "Object", Description: "Processed content."},
+					Throws:      []api.Throw{{Error: "ParseError", Description: "Source content is malformed."}},
 					Deprecated:  "Use PARSE instead.",
 				}},
 			}},

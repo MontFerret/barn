@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
+	"github.com/MontFerret/specs/pkg/api"
 )
 
 func TestAnalyzerStandardModule(t *testing.T) {
@@ -104,13 +104,13 @@ func NeverRegistered(context.Context) (runtime.Value, error) { return nil, nil }
 		if strings.Contains(signature.Description, "@param") || strings.Contains(signature.Description, "Deprecated:") {
 			t.Fatalf("description contains structured metadata: %q", signature.Description)
 		}
-		if got, want := signature.Parameters, []registryartifact.APIParameter{{Name: "input", Type: "String|Binary", Description: "Source content."}}; !reflect.DeepEqual(got, want) {
+		if got, want := signature.Parameters, []api.Parameter{{Name: "input", Type: "String|Binary", Description: "Source content."}}; !reflect.DeepEqual(got, want) {
 			t.Fatalf("documented parameters = %#v, want %#v", got, want)
 		}
 		if signature.Return == nil || signature.Return.Type != "Object" || signature.Return.Description != "Parsed content." {
 			t.Fatalf("return = %#v", signature.Return)
 		}
-		if got, want := signature.Throws, []registryartifact.APIThrownError{
+		if got, want := signature.Throws, []api.Throw{
 			{Error: "ParseError", Description: "Source content is malformed."},
 			{Error: "ParseError", Description: "Source content cannot be normalized."},
 		}; !reflect.DeepEqual(got, want) {
@@ -119,7 +119,7 @@ func NeverRegistered(context.Context) (runtime.Value, error) { return nil, nil }
 		if signature.Deprecated != "Use Parse instead." {
 			t.Fatalf("deprecated = %q", signature.Deprecated)
 		}
-		if got, want := namespace.Functions[3].Signatures[1].Parameters, []registryartifact.APIParameter{{Name: "left"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
+		if got, want := namespace.Functions[3].Signatures[1].Parameters, []api.Parameter{{Name: "left"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
 			t.Fatalf("overload parameters = %#v, want %#v", got, want)
 		}
 	}
@@ -166,13 +166,13 @@ func Generate(_ context.Context, args ...runtime.Value) (runtime.Value, error) {
 	if !reference.Namespaces[0].Functions[0].Signatures[0].Variadic {
 		t.Fatal("GENERATE signature is not variadic")
 	}
-	if got, want := reference.Namespaces[0].Functions[0].Signatures[0].Parameters, []registryartifact.APIParameter{
+	if got, want := reference.Namespaces[0].Functions[0].Signatures[0].Parameters, []api.Parameter{
 		{Name: "prompt", Type: "String", Description: "Model prompt."},
 		{Name: "options", Type: "Object?", Description: "Generation options."},
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("GENERATE parameters = %#v, want %#v", got, want)
 	}
-	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []registryartifact.APIParameter{{Name: "arg1"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
+	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []api.Parameter{{Name: "arg1"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("MODEL parameters = %#v, want %#v", got, want)
 	}
 }
@@ -252,6 +252,10 @@ func Pair(_ context.Context, left, right runtime.Value) (runtime.Value, error) {
 	var analysisError *AnalysisError
 	if !errors.As(err, &analysisError) || analysisError.Kind != ErrorInvalidDocumentation || !strings.Contains(err.Error(), "documented parameter count 1 does not match fixed Ferret arity 2") {
 		t.Fatalf("error = %v, want fixed-arity documentation mismatch", err)
+	}
+
+	if analysisError.Position.Filename != "module/module.go" || analysisError.Position.Line != 17 {
+		t.Fatalf("position = %s, want module/module.go:17", analysisError.Position)
 	}
 }
 
@@ -641,7 +645,7 @@ func New() module.Module {
 	}
 }
 
-func namespaceNames(reference *registryartifact.APIReference) []string {
+func namespaceNames(reference *api.Reference) []string {
 	result := make([]string, 0, len(reference.Namespaces))
 	for _, namespace := range reference.Namespaces {
 		result = append(result, namespace.Name)
@@ -649,7 +653,7 @@ func namespaceNames(reference *registryartifact.APIReference) []string {
 	return result
 }
 
-func functionNames(functions []registryartifact.APIFunction) []string {
+func functionNames(functions []api.Function) []string {
 	result := make([]string, 0, len(functions))
 	for _, function := range functions {
 		result = append(result, function.Name)

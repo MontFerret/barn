@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/archive",
+  "version": "1.2.0",
+  "namespaces": [
+    {
+      "name": "FIXTURE",
+      "functions": [
+        {
+          "name": "RUN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "data",
+                  "type": "String|Binary",
+                  "description": "Source content."
+                }
+              ],
+              "description": "Run processes source content.",
+              "return": {
+                "type": "Object",
+                "description": "Processed content."
+              },
+              "throws": [
+                {
+                  "error": "ParseError",
+                  "description": "Source content is malformed."
+                }
+              ],
+              "deprecated": "Use PARSE instead."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

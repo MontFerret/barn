@@ -1,6 +1,7 @@
 package barn
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MontFerret/specs/pkg/api"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
@@ -71,7 +73,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 			return err
 		},
 		"modules/montferret/archive/versions/1.2.0/api.json": func(data []byte) error {
-			_, err := registryartifact.ParseAPIReference(data)
+			_, err := api.Parse(data)
 			return err
 		},
 		"categories.json": func(data []byte) error {
@@ -167,13 +169,13 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		t.Fatalf("rendered documentation differs:\n%s", got)
 	}
 
-	var apiReference registryartifact.APIReference
+	var apiReference api.Reference
 	decodeDistributionJSON(t, distribution, "modules/montferret/archive/versions/1.2.0/api.json", &apiReference)
-	wantSignature := registryartifact.APIFunctionSignature{
-		Parameters:  []registryartifact.APIParameter{{Name: "data", Type: "String|Binary", Description: "Source content."}},
+	wantSignature := api.Signature{
+		Parameters:  []api.Parameter{{Name: "data", Type: "String|Binary", Description: "Source content."}},
 		Description: "Run processes source content.",
-		Return:      &registryartifact.APIReturn{Type: "Object", Description: "Processed content."},
-		Throws:      []registryartifact.APIThrownError{{Error: "ParseError", Description: "Source content is malformed."}},
+		Return:      &api.Return{Type: "Object", Description: "Processed content."},
+		Throws:      []api.Throw{{Error: "ParseError", Description: "Source content is malformed."}},
 		Deprecated:  "Use PARSE instead.",
 	}
 	if got := apiReference.Namespaces[0].Functions[0].Signatures[0]; !reflect.DeepEqual(got, wantSignature) {
@@ -182,6 +184,16 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 
 	if data := string(distribution.Files["modules/montferret/archive/versions/1.2.0/api.json"]); strings.Contains(data, "documentation") {
 		t.Fatalf("API Reference contains the removed documentation field:\n%s", data)
+	}
+
+	wantAPI, err := os.ReadFile("testdata/api-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gotAPI := distribution.Files["modules/montferret/archive/versions/1.2.0/api.json"]
+	if !bytes.Equal(gotAPI, wantAPI) {
+		t.Fatalf("generated API Reference bytes differ:\ngot:\n%s\nwant:\n%s", gotAPI, wantAPI)
 	}
 
 	if data := string(distribution.Files[versionPath]); strings.Contains(data, "archive/v1.2.0") || strings.Contains(data, sourceManifest.Documentation) || strings.Contains(data, documentation) {
@@ -631,15 +643,15 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 			Manifest:      manifest,
 			PackagePath:   packagePath,
 			Documentation: []byte("# " + fixture.version + "\n"),
-			API: &registryartifact.APIReference{
-				SchemaVersion: registryartifact.SchemaVersion,
+			API: &api.Reference{
+				SchemaVersion: api.SchemaVersion,
 				ID:            owner + "/" + name,
 				Version:       fixture.version,
-				Namespaces: []registryartifact.APINamespace{{
+				Namespaces: []api.Namespace{{
 					Name: fixture.namespace,
-					Functions: []registryartifact.APIFunction{{
+					Functions: []api.Function{{
 						Name:       "RUN",
-						Signatures: []registryartifact.APIFunctionSignature{{Parameters: []registryartifact.APIParameter{}}},
+						Signatures: []api.Signature{{Parameters: []api.Parameter{}}},
 					}},
 				}},
 			},

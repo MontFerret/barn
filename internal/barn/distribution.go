@@ -14,6 +14,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/MontFerret/specs/pkg/api"
 	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
@@ -181,7 +182,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			return moduleProjection{}, fmt.Errorf("module %s@%s API Reference identity is %s@%s", registryModule.ID(), version.Record.Version, version.API.ID, version.API.Version)
 		}
 
-		if err := registryartifact.ValidateAPIReference(version.API); err != nil {
+		if err := api.Validate(version.API); err != nil {
 			return moduleProjection{}, fmt.Errorf("validate API Reference for %s@%s: %w", registryModule.ID(), version.Record.Version, err)
 		}
 
@@ -256,7 +257,7 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			return moduleProjection{}, err
 		}
 
-		if err := addArtifactJSON(distribution, path.Join(versionPath, "api.json"), *version.API, registryartifact.ValidateAPIReference); err != nil {
+		if err := addArtifactJSON(distribution, path.Join(versionPath, "api.json"), *version.API, api.Validate); err != nil {
 			return moduleProjection{}, err
 		}
 

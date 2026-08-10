@@ -98,60 +98,25 @@ SDK has no explicit registration metadata for them. The pinned `README.md`,
 `docs.md`, and `docs.html` remain required and separate from the generated API
 Reference.
 
-Named registered declarations may document their Ferret-facing API with these
-exact single-line annotations:
-
-```text
-@param <name> {<type>} <description>
-@return {<type>} <description>
-@throws {<error>} <description>
-@deprecated <description>
-```
-
-Ferret type and error expressions are preserved as opaque authored strings;
-they are not parsed as Go types. Parameters and failures retain source order.
-Raw annotation lines are removed from the signature description, and a
-structured `@deprecated` removes a standard `Deprecated:` paragraph from that
-description. Malformed supported annotations, duplicate parameter names,
-multiple returns, multiple deprecation annotations, and fixed-arity parameter
-count mismatches fail API analysis with the declaration and source position.
+Named registered declarations may provide structured Ferret-facing metadata
+using the canonical [Ferret API Documentation v1
+contract](https://github.com/MontFerret/specs/blob/v1.7.0/docs/api-documentation-v1.md).
+Barn normalizes Go line and block documentation, delegates the reusable grammar
+and metadata validation to `github.com/MontFerret/specs/pkg/api`, and maps a
+typed documentation error back to the declaration's exact source position.
 Comments on declarations that are not part of the registered Ferret API are not
 parsed.
 
-This metadata evolves the existing API Reference v1 contract in place: emitted
-documents retain `schemaVersion: 1` and the existing schema ID. Each signature
-uses the following closed shape:
+Barn retains the source-specific rules around that portable contract. Without
+structured parameters it emits name-only fallback objects from the analyzed Go
+signature. An authored parameter list replaces that fallback and must match a
+fixed Ferret arity; variadic registrations may describe multiple logical
+Ferret parameters. Malformed registered documentation or an arity mismatch
+fails analysis and publication preparation without a partial API artifact.
 
-```json
-{
-  "parameters": [
-    {
-      "name": "data",
-      "type": "String|Binary",
-      "description": "XML content."
-    }
-  ],
-  "variadic": true,
-  "description": "Decode decodes XML content.",
-  "return": {
-    "type": "Object",
-    "description": "Normalized XML document."
-  },
-  "throws": [
-    {
-      "error": "ParseError",
-      "description": "XML input is malformed."
-    }
-  ],
-  "deprecated": "Use Parse instead."
-}
-```
-
-Without `@param`, Barn emits name-only parameter objects derived from the
-analyzed Go signature. Once any `@param` is present, the authored ordered list
-replaces that fallback. Its length must match a fixed Ferret arity; variadic
-registrations may document multiple logical Ferret parameters. The evolved
-schema rejects the former string parameter array and `documentation` field.
+Generated documents continue to use the closed API Reference v1 wire contract,
+`schemaVersion: 1`, and its existing schema ID. The canonical model, strict JSON
+parser, and same-document validator are provided by Specs `pkg/api`.
 
 Barn consumes the Registry v1, Module Manifest v1, and generated Registry
 artifact v1 contracts from `github.com/MontFerret/specs`.

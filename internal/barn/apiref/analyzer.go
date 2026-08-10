@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
+	"github.com/MontFerret/specs/pkg/api"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -27,7 +27,7 @@ const (
 type Analyzer struct{}
 
 // Analyze derives a complete API Reference from the Go module rooted at directory.
-func (Analyzer) Analyze(ctx context.Context, repositoryRoot, directory, packagePath, moduleID, version string) (_ *registryartifact.APIReference, resultErr error) {
+func (Analyzer) Analyze(ctx context.Context, repositoryRoot, directory, packagePath, moduleID, version string) (_ *api.Reference, resultErr error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			resultErr = &AnalysisError{
@@ -67,7 +67,7 @@ func (Analyzer) Analyze(ctx context.Context, repositoryRoot, directory, packageP
 	}
 
 	reference := builder.reference(moduleID, version)
-	if err := registryartifact.ValidateAPIReference(reference); err != nil {
+	if err := api.Validate(reference); err != nil {
 		return nil, source.errorAt(ErrorInternal, constructorFunc.Pos(), fmt.Sprintf("derived API Reference is invalid: %v", err))
 	}
 
@@ -332,7 +332,7 @@ func (builder *resultBuilder) add(namespace, name string, signature signatureRec
 	return nil
 }
 
-func (builder *resultBuilder) reference(moduleID, version string) *registryartifact.APIReference {
+func (builder *resultBuilder) reference(moduleID, version string) *api.Reference {
 	namespaceNames := make([]string, 0, len(builder.namespaces))
 
 	for name := range builder.namespaces {
@@ -341,11 +341,11 @@ func (builder *resultBuilder) reference(moduleID, version string) *registryartif
 
 	sort.Strings(namespaceNames)
 
-	reference := &registryartifact.APIReference{
-		SchemaVersion: registryartifact.SchemaVersion,
+	reference := &api.Reference{
+		SchemaVersion: api.SchemaVersion,
 		ID:            moduleID,
 		Version:       version,
-		Namespaces:    make([]registryartifact.APINamespace, 0, len(namespaceNames)),
+		Namespaces:    make([]api.Namespace, 0, len(namespaceNames)),
 	}
 
 	for _, namespaceName := range namespaceNames {
@@ -358,9 +358,9 @@ func (builder *resultBuilder) reference(moduleID, version string) *registryartif
 
 		sort.Strings(functionNames)
 
-		namespace := registryartifact.APINamespace{
+		namespace := api.Namespace{
 			Name:      namespaceName,
-			Functions: make([]registryartifact.APIFunction, 0, len(functionNames)),
+			Functions: make([]api.Function, 0, len(functionNames)),
 		}
 
 		for _, functionName := range functionNames {
@@ -378,22 +378,22 @@ func (builder *resultBuilder) reference(moduleID, version string) *registryartif
 				return len(signatures[i].parameters) < len(signatures[j].parameters)
 			})
 
-			function := registryartifact.APIFunction{
+			function := api.Function{
 				Name:       functionName,
-				Signatures: make([]registryartifact.APIFunctionSignature, 0, len(signatures)),
+				Signatures: make([]api.Signature, 0, len(signatures)),
 			}
 
 			for _, signature := range signatures {
-				parameters := append([]registryartifact.APIParameter{}, signature.parameters...)
-				throws := append([]registryartifact.APIThrownError{}, signature.throws...)
-				var returnValue *registryartifact.APIReturn
+				parameters := append([]api.Parameter{}, signature.parameters...)
+				throws := append([]api.Throw{}, signature.throws...)
+				var returnValue *api.Return
 
 				if signature.returnValue != nil {
 					cloned := *signature.returnValue
 					returnValue = &cloned
 				}
 
-				function.Signatures = append(function.Signatures, registryartifact.APIFunctionSignature{
+				function.Signatures = append(function.Signatures, api.Signature{
 					Parameters:  parameters,
 					Variadic:    signature.variadic,
 					Description: signature.description,
