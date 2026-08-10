@@ -121,13 +121,33 @@ func TestStampVersionsRejectsZeroTimestamp(t *testing.T) {
 	}
 }
 
-func TestCanonicalHistoricalVersionsAreBackfilled(t *testing.T) {
+func TestCanonicalRegistryContainsCleanRestartBaseline(t *testing.T) {
 	registry, err := Load(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	historical := map[string]struct{}{
+	baseline := map[string]struct{}{
+		"montferret/archive@1.0.0-rc.4":   {},
+		"montferret/article@1.0.0-rc.16":  {},
+		"montferret/csv@1.0.0-rc.17":      {},
+		"montferret/html@1.0.0-rc.22":     {},
+		"montferret/jwt@1.0.0-rc.13":      {},
+		"montferret/llm@1.0.0-rc.5":       {},
+		"montferret/oauth2@1.0.0-rc.4":    {},
+		"montferret/pdf@1.0.0-rc.9":       {},
+		"montferret/postgres@1.0.0-rc.10": {},
+		"montferret/redis@1.0.0-rc.3":     {},
+		"montferret/rest@1.0.0-rc.12":     {},
+		"montferret/robots@1.0.0-rc.15":   {},
+		"montferret/sitemap@1.0.0-rc.15":  {},
+		"montferret/sqlite@1.0.0-rc.13":   {},
+		"montferret/toml@1.0.0-rc.15":     {},
+		"montferret/xlsx@1.0.0-rc.9":      {},
+		"montferret/xml@1.0.0-rc.15":      {},
+		"montferret/yaml@1.0.0-rc.15":     {},
+	}
+	retired := map[string]struct{}{
 		"montferret/archive@1.0.0-rc.3":  {},
 		"montferret/article@1.0.0-rc.15": {},
 		"montferret/csv@1.0.0-rc.16":     {},
@@ -137,6 +157,7 @@ func TestCanonicalHistoricalVersionsAreBackfilled(t *testing.T) {
 		"montferret/oauth2@1.0.0-rc.3":   {},
 		"montferret/pdf@1.0.0-rc.8":      {},
 		"montferret/postgres@1.0.0-rc.9": {},
+		"montferret/redis@1.0.0-rc.1":    {},
 		"montferret/rest@1.0.0-rc.11":    {},
 		"montferret/robots@1.0.0-rc.14":  {},
 		"montferret/sitemap@1.0.0-rc.14": {},
@@ -146,21 +167,19 @@ func TestCanonicalHistoricalVersionsAreBackfilled(t *testing.T) {
 		"montferret/xml@1.0.0-rc.14":     {},
 		"montferret/yaml@1.0.0-rc.14":    {},
 	}
-	want := time.Date(2026, time.August, 7, 18, 24, 28, 0, time.UTC)
 
 	for _, module := range registry.Modules {
 		for _, version := range module.Versions {
 			key := module.ID() + "@" + version.Record.Version
-			if _, exists := historical[key]; !exists {
-				continue
+			if _, exists := retired[key]; exists {
+				t.Fatalf("retired version %s remains in the canonical registry", key)
 			}
-			if version.Record.PublishedAt == nil || !version.Record.PublishedAt.Equal(want) {
-				t.Fatalf("historical version %s has publication timestamp %v, want %s", key, version.Record.PublishedAt, want.Format(time.RFC3339))
-			}
-			delete(historical, key)
+
+			delete(baseline, key)
 		}
 	}
-	if len(historical) != 0 {
-		t.Fatalf("historical versions are missing from the canonical registry: %v", historical)
+
+	if len(baseline) != 0 {
+		t.Fatalf("clean-restart baseline versions are missing from the canonical registry: %v", baseline)
 	}
 }
