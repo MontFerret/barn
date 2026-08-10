@@ -339,10 +339,11 @@ CI validates the registry, verifies that each tag resolves to its pinned
 commit, checks the `ferret.yaml` identity and version, snapshots `README.md`,
 derives and validates `api.json`, and generates and verifies the complete
 `dist/` hierarchy. Pull-request output is discarded. After a version reaches
-`main`, the publication workflow stamps its canonical record and dispatches CI
-for the resulting commit; only a fully stamped registry is deployed to the
-GitHub Pages site root. Published module sources, version identities, and
-assigned timestamps are immutable after that transition.
+`main`, the publication workflow stamps its canonical record and pushes the
+resulting commit as the Ferret Barn Publisher GitHub App. That push triggers CI;
+only a fully stamped registry is deployed to the GitHub Pages site root.
+Published module sources, version identities, and assigned timestamps are
+immutable after that transition.
 
 ## Development
 
@@ -367,6 +368,32 @@ The generation commands are maintainer and CI tools; module registrants do not
 need to run them. The Barn CLI's `--root` option refers to the Barn repository
 root containing `registry/`, not to the `registry/` source directory. Generated
 output is written to `dist/` beneath that root.
+
+### Trusted publication setup
+
+Barn uses a dedicated GitHub App for the trusted canonical mutation that adds
+publication timestamps after a registration pull request reaches `main`.
+Maintainers must complete this setup before merging an unstamped publication:
+
+1. Create a GitHub App named `Ferret Barn Publisher` with only the repository
+   permission `Contents: Read and write`.
+2. Install the App only on `MontFerret/barn`.
+3. Store its App ID as the repository variable `BARN_PUBLISHER_APP_ID`.
+4. Store its private key as the repository Actions secret
+   `BARN_PUBLISHER_PRIVATE_KEY`.
+5. Add `Ferret Barn Publisher` to the `main` branch ruleset bypass list with
+   `Always allow`.
+
+The stamping workflow keeps its default `GITHUB_TOKEN` read-only. It creates a
+current-repository installation token only when stamping changed canonical
+records, uses that token for the direct push, and does not fall back to another
+credential if token creation or the ruleset bypass fails. Pull request CI does
+not reference or receive the Publisher credentials. Never commit the App private
+key or a generated installation token.
+
+`Ferret Release Bot` remains a separate release-oriented identity. Do not reuse
+its App ID or private key, widen its permissions, or assign Barn publication
+responsibilities to it.
 
 Remote validation uses provider-independent Git operations. It permits only
 anonymous public HTTPS repositories, disables credentials and redirects, and
