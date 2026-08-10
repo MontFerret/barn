@@ -12,9 +12,11 @@ import (
 	"testing"
 
 	"github.com/MontFerret/barn/internal/barn"
+	"github.com/MontFerret/barn/internal/barn/apiref"
 	registryclient "github.com/MontFerret/barn/pkg/registry"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 	"github.com/MontFerret/specs/pkg/validation"
 )
 
@@ -252,7 +254,7 @@ func TestPrepareResolvesTagWithSharedGitInspector(t *testing.T) {
 
 	inspector := barn.GitInspector{Resolver: func(context.Context, string) (string, error) {
 		return repository, nil
-	}}
+	}, Analyzer: publishFixtureAnalyzer{}}
 	result, err := prepare(
 		context.Background(),
 		Request{Directory: repository, Tag: "v1.0.0"},
@@ -265,6 +267,28 @@ func TestPrepareResolvesTagWithSharedGitInspector(t *testing.T) {
 	if result.Version.Commit != wantCommit {
 		t.Fatalf("resolved commit %q, want %q", result.Version.Commit, wantCommit)
 	}
+}
+
+func TestPrepareMapsAnalysisFailuresToAPIStage(t *testing.T) {
+	directory := t.TempDir()
+	writeManifest(t, directory, testModuleID, "1.0.0", testRepository, "")
+	inspector := &fakeInspector{err: &apiref.AnalysisError{
+		Kind:     apiref.ErrorUnsupportedRegistration,
+		ModuleID: testModuleID,
+		Version:  "1.0.0",
+		Err:      errors.New("dynamic function name"),
+	}}
+
+	result, err := prepare(
+		context.Background(),
+		Request{Directory: directory, Tag: "v1.0.0"},
+		&fakeRegistry{moduleErr: registryclient.ErrModuleNotFound},
+		inspector,
+	)
+	if result != nil {
+		t.Fatalf("result = %#v, want nil", result)
+	}
+	assertStage(t, err, StageAPI)
 }
 
 type fakeRegistry struct {
@@ -290,6 +314,23 @@ type fakeInspector struct {
 	release *barn.ResolvedRelease
 	err     error
 	calls   int
+}
+
+type publishFixtureAnalyzer struct{}
+
+func (publishFixtureAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*registryartifact.APIReference, error) {
+	return &registryartifact.APIReference{
+		SchemaVersion: registryartifact.SchemaVersion,
+		ID:            moduleID,
+		Version:       version,
+		Namespaces: []registryartifact.APINamespace{{
+			Name: "ARCHIVE",
+			Functions: []registryartifact.APIFunction{{
+				Name:       "OPEN",
+				Signatures: []registryartifact.APIFunctionSignature{{Parameters: []string{}}},
+			}},
+		}},
+	}, nil
 }
 
 func (inspector *fakeInspector) Inspect(context.Context, registryspec.Source, string, string, string) (*barn.ResolvedRelease, error) {

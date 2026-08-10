@@ -27,6 +27,7 @@ const (
 	StageRequest  Stage = "request"
 	StageRegistry Stage = "registry"
 	StageGit      Stage = "git"
+	StageAPI      Stage = "api"
 	StageFiles    Stage = "files"
 )
 

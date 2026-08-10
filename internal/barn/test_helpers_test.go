@@ -14,6 +14,7 @@ import (
 
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 const (
@@ -256,4 +257,27 @@ func fixtureResolver(directory string) RepositoryResolver {
 		}
 		return directory, nil
 	}
+}
+
+type fixtureAPIAnalyzer struct{}
+
+func (fixtureAPIAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version string) (*registryartifact.APIReference, error) {
+	return &registryartifact.APIReference{
+		SchemaVersion: registryartifact.SchemaVersion,
+		ID:            moduleID,
+		Version:       version,
+		Namespaces: []registryartifact.APINamespace{{
+			Name: "FIXTURE",
+			Functions: []registryartifact.APIFunction{{
+				Name: "RUN",
+				Signatures: []registryartifact.APIFunctionSignature{{
+					Parameters: []string{},
+				}},
+			}},
+		}},
+	}, nil
+}
+
+func fixtureGitInspector(directory string) GitInspector {
+	return GitInspector{Resolver: fixtureResolver(directory), Analyzer: fixtureAPIAnalyzer{}}
 }

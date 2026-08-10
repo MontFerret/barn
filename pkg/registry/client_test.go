@@ -78,6 +78,9 @@ func TestClientReadsAndSearchesStaticDistribution(t *testing.T) {
 	if got := version.Content["documentationHtml"]; got != server.URL+"/records/releases/1.0.0/docs.html" {
 		t.Fatalf("unexpected resolved HTML documentation URL: %q", got)
 	}
+	if got := version.Content["api"]; got != server.URL+"/records/releases/1.0.0/api.json" {
+		t.Fatalf("unexpected resolved API Reference URL: %q", got)
+	}
 
 	categories, err := client.Categories(context.Background())
 	if err != nil {
@@ -617,6 +620,7 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
   },
   "package": {"path":"example.com/archive"},
   "content": {
+	"api":"./api.json",
     "documentation":"./docs.md",
     "documentationHtml":"./docs.html"
   }

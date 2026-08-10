@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/MontFerret/barn/internal/barn"
+	"github.com/MontFerret/barn/internal/barn/apiref"
 	registryclient "github.com/MontFerret/barn/pkg/registry"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
@@ -97,6 +98,10 @@ func prepare(ctx context.Context, request Request, reader registryReader, inspec
 
 	release, err := inspector.Inspect(ctx, moduleRecord.Source, manifest.Name, manifest.Version, request.Tag)
 	if err != nil {
+		var analysisError *apiref.AnalysisError
+		if errors.As(err, &analysisError) {
+			return nil, stageError(StageAPI, err)
+		}
 		return nil, stageError(StageGit, err)
 	}
 

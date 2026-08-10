@@ -29,7 +29,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	root := t.TempDir()
 	writeRegistryRecord(t, root, "montferret", "archive", registryManifest, stampedTestVersion("1.2.0", "archive/v1.2.0", fixture.commit))
 
-	registry, err := Validate(context.Background(), root, GitInspector{Resolver: fixtureResolver(fixture.directory)})
+	registry, err := Validate(context.Background(), root, fixtureGitInspector(fixture.directory))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +44,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		"index.json",
 		"modules/index.json",
 		"modules/montferret/archive/index.json",
+		"modules/montferret/archive/versions/1.2.0/api.json",
 		"modules/montferret/archive/versions/1.2.0/docs.html",
 		"modules/montferret/archive/versions/1.2.0/docs.md",
 		"modules/montferret/archive/versions/1.2.0/index.json",
@@ -67,6 +68,10 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		},
 		"modules/montferret/archive/versions/1.2.0/index.json": func(data []byte) error {
 			_, err := registryartifact.ParseVersionDocument(data)
+			return err
+		},
+		"modules/montferret/archive/versions/1.2.0/api.json": func(data []byte) error {
+			_, err := registryartifact.ParseAPIReference(data)
 			return err
 		},
 		"categories.json": func(data []byte) error {
@@ -149,6 +154,7 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 		Commit:     fixture.commit,
 	}
 	if versionDocument.Source != wantSource || versionDocument.Package != (VersionPackage{Path: testPackagePath}) || !reflect.DeepEqual(versionDocument.Links, sourceManifest.Links) || !reflect.DeepEqual(versionDocument.Content, map[string]string{
+		"api":               "./api.json",
 		"documentation":     "./docs.md",
 		"documentationHtml": "./docs.html",
 	}) {
@@ -556,6 +562,18 @@ func TestGenerateDistributionRequiresResolvedPackage(t *testing.T) {
 	}
 }
 
+func TestGenerateDistributionRequiresResolvedAPIReference(t *testing.T) {
+	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
+		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
+	}})
+	module.Versions[0].API = nil
+
+	_, err := GenerateDistribution(&Registry{Modules: []*Module{module}})
+	if err == nil || !strings.Contains(err.Error(), "API Reference has not been resolved") {
+		t.Fatalf("expected unresolved API Reference error, got %v", err)
+	}
+}
+
 func TestGenerateDistributionRequiresPublicationStamp(t *testing.T) {
 	module := distributionTestModule("montferret", "archive", []distributionTestVersion{{
 		version: "1.0.0", namespace: "ARCHIVE", description: "Archives.",
@@ -595,6 +613,18 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 			Manifest:      manifest,
 			PackagePath:   packagePath,
 			Documentation: []byte("# " + fixture.version + "\n"),
+			API: &registryartifact.APIReference{
+				SchemaVersion: registryartifact.SchemaVersion,
+				ID:            owner + "/" + name,
+				Version:       fixture.version,
+				Namespaces: []registryartifact.APINamespace{{
+					Name: fixture.namespace,
+					Functions: []registryartifact.APIFunction{{
+						Name:       "RUN",
+						Signatures: []registryartifact.APIFunctionSignature{{Parameters: []string{}}},
+					}},
+				}},
+			},
 		})
 	}
 

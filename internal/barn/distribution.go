@@ -173,6 +173,18 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			return moduleProjection{}, fmt.Errorf("module %s@%s package has not been resolved", registryModule.ID(), version.Record.Version)
 		}
 
+		if version.API == nil {
+			return moduleProjection{}, fmt.Errorf("module %s@%s API Reference has not been resolved", registryModule.ID(), version.Record.Version)
+		}
+
+		if version.API.ID != registryModule.ID() || version.API.Version != version.Record.Version {
+			return moduleProjection{}, fmt.Errorf("module %s@%s API Reference identity is %s@%s", registryModule.ID(), version.Record.Version, version.API.ID, version.API.Version)
+		}
+
+		if err := registryartifact.ValidateAPIReference(version.API); err != nil {
+			return moduleProjection{}, fmt.Errorf("validate API Reference for %s@%s: %w", registryModule.ID(), version.Record.Version, err)
+		}
+
 		if version.Record.PublishedAt == nil {
 			return moduleProjection{}, fmt.Errorf("module %s@%s has not been publication-stamped", registryModule.ID(), version.Record.Version)
 		}
@@ -234,12 +246,17 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			},
 			Package: VersionPackage{Path: version.PackagePath},
 			Content: map[string]string{
+				registryartifact.ContentKeyAPI:               "./api.json",
 				registryartifact.ContentKeyDocumentation:     "./docs.md",
 				registryartifact.ContentKeyDocumentationHTML: "./docs.html",
 			},
 		}
 
 		if err := addArtifactJSON(distribution, path.Join(versionPath, "index.json"), versionDocument, registryartifact.ValidateVersionDocument); err != nil {
+			return moduleProjection{}, err
+		}
+
+		if err := addArtifactJSON(distribution, path.Join(versionPath, "api.json"), *version.API, registryartifact.ValidateAPIReference); err != nil {
 			return moduleProjection{}, err
 		}
 
@@ -449,6 +466,7 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 
 		return nil
 	})
+
 	if err != nil {
 		return fmt.Errorf("read generated distribution: %w", err)
 	}

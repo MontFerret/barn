@@ -3,6 +3,8 @@ package barn
 import (
 	"context"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -23,7 +25,7 @@ func TestGitInspectorStandaloneAndMonorepository(t *testing.T) {
 				Versions: []*Version{{Record: testVersion("1.2.0", "archive/v1.2.0", fixture.commit)}},
 			}}}
 
-			inspector := GitInspector{Resolver: fixtureResolver(fixture.directory)}
+			inspector := fixtureGitInspector(fixture.directory)
 			if err := inspector.Resolve(context.Background(), registry); err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +119,7 @@ func TestGitInspectorValidatesPinnedGoModule(t *testing.T) {
 			registry := registryForFixture(fixture, test.version, "v"+test.version)
 			registry.Modules[0].Manifest.Source.Path = test.sourcePath
 
-			err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+			err := fixtureGitInspector(fixture.directory).Resolve(context.Background(), registry)
 			if test.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantError) {
 					t.Fatalf("expected error containing %q, got %v", test.wantError, err)
@@ -141,7 +143,7 @@ func TestGitInspectorRejectsInvalidCategoryID(t *testing.T) {
 	fixture := newGitFixture(t, "", manifest, "v1.0.0", false)
 	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
 
-	err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+	err := fixtureGitInspector(fixture.directory).Resolve(context.Background(), registry)
 	if err == nil || !strings.Contains(err.Error(), "montferret/archive@1.0.0") || !strings.Contains(err.Error(), `category "../legacy"`) || !strings.Contains(err.Error(), categoryIDPatternText) {
 		t.Fatalf("expected contextual category validation error, got %v", err)
 	}
@@ -152,7 +154,7 @@ func TestGitInspectorRequiresPinnedDocumentation(t *testing.T) {
 	fixture := newGitFixtureWithoutDocumentation(t, "", manifest, "v1.0.0", false)
 	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
 
-	err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+	err := fixtureGitInspector(fixture.directory).Resolve(context.Background(), registry)
 	if err == nil || !strings.Contains(err.Error(), moduleDocumentationFilename) {
 		t.Fatalf("expected missing %s error, got %v", moduleDocumentationFilename, err)
 	}
@@ -165,7 +167,7 @@ func TestGitInspectorDoesNotDiscoverLegacyManifestFilenames(t *testing.T) {
 			fixture := newGitFixtureWithManifestFilename(t, "", manifest, filename, "v1.0.0", false)
 			registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
 
-			err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry)
+			err := fixtureGitInspector(fixture.directory).Resolve(context.Background(), registry)
 			if err == nil || !strings.Contains(err.Error(), modulemanifest.ManifestFilename) {
 				t.Fatalf("expected missing %s error, got %v", modulemanifest.ManifestFilename, err)
 			}
@@ -177,8 +179,40 @@ func TestGitInspectorLightweightTag(t *testing.T) {
 	manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.0.0", "Archives.")
 	fixture := newGitFixture(t, "", manifest, "v1.0.0", false)
 	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
-	if err := (GitInspector{Resolver: fixtureResolver(fixture.directory)}).Resolve(context.Background(), registry); err != nil {
+	if err := fixtureGitInspector(fixture.directory).Resolve(context.Background(), registry); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGitInspectorMaterializesAndAnalyzesPinnedCommit(t *testing.T) {
+	const sourcePath = "modules/archive"
+	manifest := testModuleManifest("montferret/archive", "ARCHIVE", "1.0.0", "Archives.")
+	manifest.Repository.Directory = sourcePath
+	fixture := newGitFixture(t, sourcePath, manifest, "", false)
+	writeAnalyzableGitFixture(t, fixture.directory, sourcePath)
+	runTestGit(t, fixture.directory, "add", ".")
+	runTestGit(t, fixture.directory, "commit", "-m", "add analyzable source")
+	fixture.commit = strings.TrimSpace(runTestGit(t, fixture.directory, "rev-parse", "HEAD"))
+	runTestGit(t, fixture.directory, "tag", "v1.0.0")
+
+	// A dirty working tree must not affect analysis of the pinned commit.
+	if err := os.WriteFile(filepath.Join(fixture.directory, sourcePath, "module.go"), []byte("package archive\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	registry := registryForFixture(fixture, "1.0.0", "v1.0.0")
+	registry.Modules[0].Manifest.Source.Path = sourcePath
+	inspector := GitInspector{Resolver: fixtureResolver(fixture.directory)}
+	if err := inspector.Resolve(context.Background(), registry); err != nil {
+		t.Fatalf("resolve real API analysis fixture: %v", err)
+	}
+
+	api := registry.Modules[0].Versions[0].API
+	if api == nil || len(api.Namespaces) != 1 || api.Namespaces[0].Name != "FIXTURE" {
+		t.Fatalf("API Reference = %#v", api)
+	}
+	if got, want := api.Namespaces[0].Functions[0].Name, "RUN"; got != want {
+		t.Fatalf("function name = %q, want %q", got, want)
 	}
 }
 
@@ -233,7 +267,7 @@ func TestGitInspectorFailures(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			registry, resolver := setup(t)
-			if err := (GitInspector{Resolver: resolver}).Resolve(context.Background(), registry); err == nil {
+			if err := (GitInspector{Resolver: resolver, Analyzer: fixtureAPIAnalyzer{}}).Resolve(context.Background(), registry); err == nil {
 				t.Fatal("expected inspection to fail")
 			}
 		})
@@ -283,4 +317,80 @@ func registryForFixture(fixture gitFixture, version, tag string) *Registry {
 		Manifest: testRegistryManifest("montferret", "archive"),
 		Versions: []*Version{{Record: testVersion(version, tag, fixture.commit)}},
 	}}}
+}
+
+func writeAnalyzableGitFixture(t *testing.T, repository, sourcePath string) {
+	t.Helper()
+	files := map[string]string{
+		filepath.Join(sourcePath, "go.mod"): `module example.com/archive
+
+go 1.25.0
+
+require github.com/MontFerret/ferret/v2 v2.0.0
+
+replace github.com/MontFerret/ferret/v2 => ../../ferret
+`,
+		filepath.Join(sourcePath, "module.go"): `package archive
+
+import (
+	"context"
+	"github.com/MontFerret/ferret/v2/pkg/module"
+	"github.com/MontFerret/ferret/v2/pkg/runtime"
+	"github.com/MontFerret/ferret/v2/pkg/sdk"
+)
+
+func New() module.Module {
+	return sdk.NewModule("archive", func(bootstrap module.Bootstrap) error {
+		return sdk.RegisterFunctions(
+			bootstrap.Host().Library().Namespace("FIXTURE"),
+			sdk.Func("RUN", Run),
+		)
+	})
+}
+
+// Run executes the fixture function.
+func Run(context.Context) (runtime.Value, error) { return nil, nil }
+`,
+		"ferret/go.mod": "module github.com/MontFerret/ferret/v2\n\ngo 1.25.0\n",
+		"ferret/pkg/runtime/runtime.go": `package runtime
+
+import "context"
+
+type Value = any
+type Function0 = func(context.Context) (Value, error)
+type FunctionDef interface { A0() FunctionCollection[Function0] }
+type FunctionCollection[T any] interface { Add(string, T) FunctionCollection[T] }
+type Namespace interface { Namespace(string) Namespace; Function() FunctionDef }
+type Library interface { Namespace; Build() error }
+`,
+		"ferret/pkg/module/module.go": `package module
+
+import "github.com/MontFerret/ferret/v2/pkg/runtime"
+
+type Module interface { Register(Bootstrap) error }
+type HostContext interface { Library() runtime.Library }
+type Bootstrap interface { Host() HostContext }
+`,
+		"ferret/pkg/sdk/sdk.go": `package sdk
+
+import (
+	"github.com/MontFerret/ferret/v2/pkg/module"
+	"github.com/MontFerret/ferret/v2/pkg/runtime"
+)
+
+type FunctionDef struct{}
+func NewModule(string, func(module.Bootstrap) error) module.Module { return nil }
+func Func(string, runtime.Function0) FunctionDef { return FunctionDef{} }
+func RegisterFunctions(runtime.Namespace, ...FunctionDef) error { return nil }
+`,
+	}
+	for name, contents := range files {
+		filename := filepath.Join(repository, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(filename), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filename, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

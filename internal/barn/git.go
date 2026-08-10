@@ -3,6 +3,7 @@ package barn
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"net/netip"
@@ -14,8 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MontFerret/barn/internal/barn/apiref"
 	modulemanifest "github.com/MontFerret/specs/pkg/module"
 	registryspec "github.com/MontFerret/specs/pkg/registry"
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 )
 
 type (
@@ -28,9 +31,15 @@ type (
 	// Production leaves this nil; tests use it to route fixture HTTPS URLs locally.
 	RepositoryResolver func(context.Context, string) (string, error)
 
+	// APIAnalyzer derives a complete API Reference from one materialized release.
+	APIAnalyzer interface {
+		Analyze(context.Context, string, string, string, string, string) (*registryartifact.APIReference, error)
+	}
+
 	// GitInspector inspects release refs and blobs using the Git executable.
 	GitInspector struct {
 		Resolver RepositoryResolver
+		Analyzer APIAnalyzer
 		Timeout  time.Duration
 	}
 
@@ -40,6 +49,7 @@ type (
 		Manifest      *modulemanifest.Manifest
 		PackagePath   string
 		Documentation []byte
+		API           *registryartifact.APIReference
 	}
 
 	sourceRepository struct {
@@ -59,11 +69,11 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 
 	defer os.RemoveAll(temporaryRoot)
 
-	repositories := make(map[registryspec.Source]sourceRepository)
+	repositories := make(map[string]sourceRepository)
 
 	for _, registryModule := range registry.Modules {
 		source := registryModule.Manifest.Source
-		repository, exists := repositories[source]
+		repository, exists := repositories[source.Repository]
 
 		if !exists {
 			resolvedURL, local, err := inspector.resolveRepository(ctx, source.Repository)
@@ -81,7 +91,7 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 			}
 
 			repository = sourceRepository{directory: directory, local: local}
-			repositories[source] = repository
+			repositories[source.Repository] = repository
 		}
 
 		for _, version := range registryModule.Versions {
@@ -91,6 +101,7 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 				repository.directory,
 				repository.local,
 				temporaryRoot,
+				inspector.analyzer(),
 				registryModule.Manifest.Source,
 				registryModule.ID(),
 				version.Record.Version,
@@ -107,6 +118,7 @@ func (inspector GitInspector) Resolve(ctx context.Context, registry *Registry) e
 			version.Manifest = release.Manifest
 			version.PackagePath = release.PackagePath
 			version.Documentation = append([]byte{}, release.Documentation...)
+			version.API = release.API
 		}
 	}
 
@@ -138,7 +150,15 @@ func (inspector GitInspector) Inspect(ctx context.Context, source registryspec.S
 	operationContext, cancel := context.WithTimeout(ctx, inspector.timeout())
 	defer cancel()
 
-	return inspectRelease(operationContext, directory, local, temporaryRoot, source, moduleID, version, tag, "")
+	return inspectRelease(operationContext, directory, local, temporaryRoot, inspector.analyzer(), source, moduleID, version, tag, "")
+}
+
+func (inspector GitInspector) analyzer() APIAnalyzer {
+	if inspector.Analyzer != nil {
+		return inspector.Analyzer
+	}
+
+	return apiref.Analyzer{}
 }
 
 func (inspector GitInspector) timeout() time.Duration {
@@ -163,7 +183,7 @@ func (inspector GitInspector) resolveRepository(ctx context.Context, repository 
 	return repository, false, nil
 }
 
-func inspectRelease(ctx context.Context, directory string, local bool, temporaryRoot string, source registryspec.Source, moduleID, version, tag, expectedCommit string) (*ResolvedRelease, error) {
+func inspectRelease(ctx context.Context, directory string, local bool, temporaryRoot string, analyzer APIAnalyzer, source registryspec.Source, moduleID, version, tag, expectedCommit string) (*ResolvedRelease, error) {
 	tagRef := "refs/tags/" + tag
 	refspec := "+" + tagRef + ":" + tagRef
 
@@ -239,11 +259,49 @@ func inspectRelease(ctx context.Context, directory string, local bool, temporary
 		return nil, fmt.Errorf("read %s at %s for %s@%s: %w", documentationPath, commit, moduleID, version, err)
 	}
 
+	materializedRoot := filepath.Join(temporaryRoot, fmt.Sprintf("source-%x", sha256.Sum256([]byte(source.Repository+"\x00"+commit))))
+	if err := materializeCommit(ctx, directory, local, temporaryRoot, commit, materializedRoot); err != nil {
+		return nil, fmt.Errorf("materialize commit %s for %s@%s: %w", commit, moduleID, version, err)
+	}
+	moduleDirectory := materializedRoot
+	if source.Path != "" {
+		moduleDirectory = filepath.Join(materializedRoot, filepath.FromSlash(source.Path))
+	}
+	if err := validateLocalReplacements(packagePath, packageData, materializedRoot, moduleDirectory); err != nil {
+		return nil, &apiref.AnalysisError{
+			Kind:     apiref.ErrorInvalidPackage,
+			ModuleID: moduleID,
+			Version:  version,
+			Err:      fmt.Errorf("validate %s at %s: %w", packagePath, commit, err),
+		}
+	}
+	reference, err := analyzer.Analyze(ctx, materializedRoot, moduleDirectory, resolvedPackagePath, moduleID, version)
+	if err != nil {
+		return nil, err
+	}
+	if reference == nil || reference.ID != moduleID || reference.Version != version {
+		return nil, &apiref.AnalysisError{
+			Kind:     apiref.ErrorInternal,
+			ModuleID: moduleID,
+			Version:  version,
+			Err:      fmt.Errorf("analyzer returned an absent or mismatched API Reference"),
+		}
+	}
+	if err := registryartifact.ValidateAPIReference(reference); err != nil {
+		return nil, &apiref.AnalysisError{
+			Kind:     apiref.ErrorInternal,
+			ModuleID: moduleID,
+			Version:  version,
+			Err:      fmt.Errorf("analyzer returned an invalid API Reference: %w", err),
+		}
+	}
+
 	return &ResolvedRelease{
 		Commit:        commit,
 		Manifest:      manifest,
 		PackagePath:   resolvedPackagePath,
 		Documentation: append([]byte{}, documentation...),
+		API:           reference,
 	}, nil
 }
 
@@ -305,6 +363,10 @@ var nonPublicPrefixes = []netip.Prefix{
 }
 
 func runGit(ctx context.Context, directory string, allowFile bool, temporaryRoot string, arguments ...string) ([]byte, error) {
+	return runGitInput(ctx, directory, allowFile, temporaryRoot, nil, arguments...)
+}
+
+func runGitInput(ctx context.Context, directory string, allowFile bool, temporaryRoot string, input []byte, arguments ...string) ([]byte, error) {
 	config := []string{
 		"-c", "credential.helper=",
 		"-c", "protocol.allow=never",
@@ -318,6 +380,7 @@ func runGit(ctx context.Context, directory string, allowFile bool, temporaryRoot
 
 	command := exec.CommandContext(ctx, "git", append(config, arguments...)...)
 	command.Dir = directory
+	command.Stdin = bytes.NewReader(input)
 	command.Env = append(cleanGitEnvironment(os.Environ()),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=/usr/bin/false",

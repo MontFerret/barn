@@ -30,6 +30,7 @@ dist/
         index.json
         versions/
           <version>/
+            api.json
             index.json
             docs.html
             docs.md
@@ -85,6 +86,16 @@ at the exact pinned commit. It publishes those bytes as version-scoped
 stable heading anchors. Relative Markdown links are resolved against the
 manifest's explicit documentation URL. Barn does not fetch that URL or try
 alternative documentation filenames.
+
+Barn also derives a version-scoped Ferret API Reference from the Go source at
+that commit and publishes it as `api.json`. The artifact contains namespaces,
+functions, fixed or variadic signatures, parameter names, and optional Go-doc
+text. It is registration-driven: Barn does not copy or validate the manifest's
+`exports` list. Constants, types, properties, methods, queryable host values,
+and query dialect strings remain in the hand-written documentation because the
+current SDK has no explicit registration metadata for them. The pinned
+`README.md`, `docs.md`, and `docs.html` remain required and separate from the
+generated API Reference.
 
 Barn consumes the Registry v1, Module Manifest v1, and generated Registry
 artifact v1 contracts from `github.com/MontFerret/specs`.
@@ -149,16 +160,88 @@ if err != nil {
 `publish.Prepare` loads `ferret.yaml`, consults the static registry to
 distinguish a new module from a new version, resolves the tag through anonymous
 HTTPS Git, validates the pinned manifest and documentation using the same Git
-inspection path as Barn CI, and returns structured records without modifying
-either repository.
+inspection and API-analysis path as Barn CI, and returns structured records
+without modifying either repository. Source-analysis failures are exposed as
+the public `publish.StageAPI` preparation stage.
+
+## API Reference authoring contract
+
+Barn analyzes source without checking it out into a working repository and
+without executing module code. It materializes the exact verified commit into
+a temporary tree, rejects symlinks and other non-regular source-tree entries,
+and rejects local `replace` directives that resolve outside that tree. It then
+loads non-test packages rooted at the manifest source directory with Go AST
+and type information.
+
+Supported registration forms are intentionally explicit:
+
+- an inline or statically named callback passed to `sdk.NewModule`;
+- a returned local module type whose `Register(module.Bootstrap) error` method
+  performs registration, as used by the LLM module;
+- module-local helper calls across packages with statically propagated
+  `Library` and `Namespace("...")` values;
+- `sdk.RegisterFunctions` with direct `sdk.Func` values, static composite
+  slices, and static `append` composition;
+- `sdk.Bind` and `sdk.Bind0` through `sdk.Bind4`;
+- direct `Function().A0()` through `A4()` and `Var()` builder chains with
+  `Add`; and
+- named functions, function literals, or factories whose return paths resolve
+  to exactly one statically identifiable function target.
+
+Configuration branches are analyzed as a union, so optional registrations and
+legacy global registrations must all remain statically recognizable. Missing
+or `_` Go parameter names become stable `arg1`, `arg2`, and so on. Go-doc text
+is included only when a registered value resolves unambiguously to a named Go
+declaration.
+
+Dynamic function or namespace names, loop or map-built definitions,
+reflection, interface-dispatched or external registration helpers,
+function-builder `From` or `Remove`, ambiguous factories, and dynamically
+selected module roots are unsupported. Barn fails validation and publication
+preparation instead of emitting a partial artifact.
+
+Modules that register hooks or host values but no Ferret functions still emit
+a valid API Reference with an empty `namespaces` array. Those non-function
+surfaces remain documented only in the required hand-written documentation.
+
+Analysis uses the fixed `linux/amd64` platform with CGO disabled, the locally
+selected Go toolchain, `GOWORK=off`, `GOENV=off`, read-only modules, build-VCS
+metadata disabled, and only the public Go proxy and checksum database. VCS
+dependency fallback is disabled. CI currently runs Go 1.26.x because that is
+required by the published module set; Barn's reusable library module retains
+its Go 1.25 minimum. A release must type-check under that analysis environment.
 
 ## Registering a module
 
-Module registration is currently a manual, pull-request-based process. Barn
-does not yet provide an end-user CLI that creates or submits registrations;
-that support will come later. To publish a module or a new version, fork this
-repository, create a branch with the registry changes described below, and
-open a pull request.
+The standard module-author workflow is handled by the Ferret CLI while Barn
+retains pull-request review and CI validation:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+ferret mod publish
+```
+
+`ferret mod publish` validates the public tagged release through Barn's
+`pkg/publish` preparation API, creates or reuses the author's personal Barn
+fork, commits only the required Registry source records, and opens a pull
+request against this repository. Authors do not need a local Barn checkout or
+knowledge of the record layout below.
+
+The CLI reads `GH_TOKEN` or `GITHUB_TOKEN`, then falls back to an authenticated
+GitHub CLI session from `gh auth token --hostname github.com`. Use
+`ferret mod publish --dry-run` for complete non-mutating release validation and
+`ferret mod publish --print` to inspect the deterministic Barn-relative records
+as JSON. Exact existing pull requests are returned on retry; published versions
+are successful no-ops, and immutable records or divergent publication branches
+are never overwritten.
+
+### Manual recovery and operator workflow
+
+The record-level process below remains available for recovery, external
+automation, and Registry operators. To submit records manually, fork this
+repository, create a branch containing only the required additions, and open a
+pull request.
 
 Before registering a release, make sure that:
 
@@ -170,6 +253,8 @@ Before registering a release, make sure that:
   compatible with the release version;
 - a `README.md` containing the release documentation exists beside that
   `ferret.yaml`;
+- the module's Ferret registrations use one of the statically supported API
+  Reference authoring forms above;
 - the manifest's `name` is the `<owner>/<module>` being registered and its
   `version` is the exact release version; and
 - the version record uses the full lowercase commit hash to which the tag
@@ -240,12 +325,12 @@ edit, or commit anything under `dist/`, and do not add entries under
 
 CI validates the registry, verifies that each tag resolves to its pinned
 commit, checks the `ferret.yaml` identity and version, snapshots `README.md`,
-and generates and verifies the complete `dist/` hierarchy. Pull-request output
-is discarded. After a version reaches `main`, the publication workflow stamps
-its canonical record and dispatches CI for the resulting commit; only a fully
-stamped registry is deployed to the GitHub Pages site root. Published module
-sources, version identities, and assigned timestamps are immutable after that
-transition.
+derives and validates `api.json`, and generates and verifies the complete
+`dist/` hierarchy. Pull-request output is discarded. After a version reaches
+`main`, the publication workflow stamps its canonical record and dispatches CI
+for the resulting commit; only a fully stamped registry is deployed to the
+GitHub Pages site root. Published module sources, version identities, and
+assigned timestamps are immutable after that transition.
 
 ## Development
 
@@ -273,5 +358,5 @@ output is written to `dist/` beneath that root.
 
 Remote validation uses provider-independent Git operations. It permits only
 anonymous public HTTPS repositories, disables credentials and redirects, and
-reads only pinned manifests and documentation without checking out or executing
-module code.
+reads and analyzes only exact pinned source snapshots without executing module
+code.
