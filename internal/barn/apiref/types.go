@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -37,9 +38,12 @@ type (
 	}
 
 	signatureRecord struct {
-		parameters    []string
-		variadic      bool
-		documentation string
+		parameters  []registryartifact.APIParameter
+		variadic    bool
+		description string
+		returnValue *registryartifact.APIReturn
+		throws      []registryartifact.APIThrownError
+		deprecated  string
 	}
 
 	addEntry struct {

@@ -271,7 +271,15 @@ func (fixtureAPIAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version 
 			Functions: []registryartifact.APIFunction{{
 				Name: "RUN",
 				Signatures: []registryartifact.APIFunctionSignature{{
-					Parameters: []string{},
+					Parameters: []registryartifact.APIParameter{{
+						Name:        "data",
+						Type:        "String|Binary",
+						Description: "Source content.",
+					}},
+					Description: "Run processes source content.",
+					Return:      &registryartifact.APIReturn{Type: "Object", Description: "Processed content."},
+					Throws:      []registryartifact.APIThrownError{{Error: "ParseError", Description: "Source content is malformed."}},
+					Deprecated:  "Use PARSE instead.",
 				}},
 			}},
 		}},

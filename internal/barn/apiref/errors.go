@@ -24,6 +24,7 @@ const (
 	ErrorDeclarationNotFound     ErrorKind = "declaration-not-found"
 	ErrorUnsupportedRegistration ErrorKind = "unsupported-registration"
 	ErrorInvalidPackage          ErrorKind = "invalid-package"
+	ErrorInvalidDocumentation    ErrorKind = "invalid-documentation"
 	ErrorUnresolvedTarget        ErrorKind = "unresolved-target"
 	ErrorInternal                ErrorKind = "internal"
 )

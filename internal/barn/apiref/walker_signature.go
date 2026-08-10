@@ -1,16 +1,16 @@
 package apiref
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
-	"strings"
 
+	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
 	"golang.org/x/tools/go/packages"
 )
 
 func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *signatureShape, active map[*types.Func]bool) (signatureRecord, error) {
 	original := expression
-	documentation := ""
 
 	if call, ok := unwrapParens(expression).(*ast.CallExpr); ok {
 		if function := referencedFunction(pkg, call.Fun); isSDKBindFunction(function) {
@@ -27,10 +27,6 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 		return signatureRecord{}, err
 	}
 
-	if declaration != nil && declaration.decl.Doc != nil {
-		documentation = strings.TrimSpace(declaration.decl.Doc.Text())
-	}
-
 	parameters := signature.Params()
 	start := 0
 
@@ -40,6 +36,7 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 
 	count := parameters.Len() - start
 	variadic := signature.Variadic()
+
 	if forced != nil {
 		if forced.variadic != variadic || (!variadic && forced.arity != count) {
 			return signatureRecord{}, w.source.errorAt(ErrorUnsupportedRegistration, original.Pos(), "registered function type does not match the selected function-builder arity")
@@ -52,7 +49,8 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 		return signatureRecord{}, w.source.errorAt(ErrorUnsupportedRegistration, original.Pos(), "registered variadic function must expose exactly one Ferret variadic parameter")
 	}
 
-	names := make([]string, 0, count)
+	fallback := make([]registryartifact.APIParameter, 0, count)
+
 	for index := start; index < parameters.Len(); index++ {
 		name := parameters.At(index).Name()
 
@@ -60,10 +58,45 @@ func (w *walker) signature(pkg *packages.Package, expression ast.Expr, forced *s
 			name = "arg" + strconvItoa(index-start+1)
 		}
 
-		names = append(names, name)
+		fallback = append(fallback, registryartifact.APIParameter{Name: name})
 	}
 
-	return signatureRecord{parameters: names, variadic: variadic, documentation: documentation}, nil
+	documentation := documentationMetadata{}
+
+	if declaration != nil && declaration.decl.Doc != nil {
+		documentation, err = parseDocumentation(declaration.decl)
+		if err != nil {
+			parseErr, ok := err.(*documentationParseError)
+			if !ok {
+				return signatureRecord{}, w.source.errorAt(ErrorInternal, declaration.decl.Pos(), fmt.Sprintf("parse declaration documentation: %v", err))
+			}
+
+			return signatureRecord{}, w.source.errorAt(ErrorInvalidDocumentation, parseErr.position, parseErr.Error())
+		}
+	}
+
+	resolvedParameters := fallback
+
+	if len(documentation.parameters) > 0 {
+		if !variadic && len(documentation.parameters) != count {
+			return signatureRecord{}, w.source.errorAt(
+				ErrorInvalidDocumentation,
+				documentation.parameterPosition,
+				fmt.Sprintf("%s: documented parameter count %d does not match fixed Ferret arity %d", declaration.decl.Name.Name, len(documentation.parameters), count),
+			)
+		}
+
+		resolvedParameters = documentation.parameters
+	}
+
+	return signatureRecord{
+		parameters:  resolvedParameters,
+		variadic:    variadic,
+		description: documentation.description,
+		returnValue: documentation.returnValue,
+		throws:      documentation.throws,
+		deprecated:  documentation.deprecated,
+	}, nil
 }
 
 func (w *walker) resolveSignature(pkg *packages.Package, expression ast.Expr, active map[*types.Func]bool) (*types.Signature, *functionNode, any, error) {

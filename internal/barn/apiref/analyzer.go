@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -319,7 +320,7 @@ func (builder *resultBuilder) add(namespace, name string, signature signatureRec
 	}
 
 	if existing, exists := signatures[key]; exists {
-		if strings.Join(existing.parameters, "\x00") == strings.Join(signature.parameters, "\x00") && existing.documentation == signature.documentation {
+		if reflect.DeepEqual(existing, signature) {
 			return nil
 		}
 
@@ -383,10 +384,22 @@ func (builder *resultBuilder) reference(moduleID, version string) *registryartif
 			}
 
 			for _, signature := range signatures {
+				parameters := append([]registryartifact.APIParameter{}, signature.parameters...)
+				throws := append([]registryartifact.APIThrownError{}, signature.throws...)
+				var returnValue *registryartifact.APIReturn
+
+				if signature.returnValue != nil {
+					cloned := *signature.returnValue
+					returnValue = &cloned
+				}
+
 				function.Signatures = append(function.Signatures, registryartifact.APIFunctionSignature{
-					Parameters:    append([]string{}, signature.parameters...),
-					Variadic:      signature.variadic,
-					Documentation: signature.documentation,
+					Parameters:  parameters,
+					Variadic:    signature.variadic,
+					Description: signature.description,
+					Return:      returnValue,
+					Throws:      throws,
+					Deprecated:  signature.deprecated,
 				})
 			}
 

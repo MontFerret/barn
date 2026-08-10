@@ -166,6 +166,24 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	if got := string(distribution.Files["modules/montferret/archive/versions/1.2.0/docs.html"]); !strings.Contains(got, `<h1 id="archive">Archive</h1>`) || !strings.Contains(got, "Pinned documentation.") {
 		t.Fatalf("rendered documentation differs:\n%s", got)
 	}
+
+	var apiReference registryartifact.APIReference
+	decodeDistributionJSON(t, distribution, "modules/montferret/archive/versions/1.2.0/api.json", &apiReference)
+	wantSignature := registryartifact.APIFunctionSignature{
+		Parameters:  []registryartifact.APIParameter{{Name: "data", Type: "String|Binary", Description: "Source content."}},
+		Description: "Run processes source content.",
+		Return:      &registryartifact.APIReturn{Type: "Object", Description: "Processed content."},
+		Throws:      []registryartifact.APIThrownError{{Error: "ParseError", Description: "Source content is malformed."}},
+		Deprecated:  "Use PARSE instead.",
+	}
+	if got := apiReference.Namespaces[0].Functions[0].Signatures[0]; !reflect.DeepEqual(got, wantSignature) {
+		t.Fatalf("unexpected generated API signature: %#v", got)
+	}
+
+	if data := string(distribution.Files["modules/montferret/archive/versions/1.2.0/api.json"]); strings.Contains(data, "documentation") {
+		t.Fatalf("API Reference contains the removed documentation field:\n%s", data)
+	}
+
 	if data := string(distribution.Files[versionPath]); strings.Contains(data, "archive/v1.2.0") || strings.Contains(data, sourceManifest.Documentation) || strings.Contains(data, documentation) {
 		t.Fatalf("version document leaks publication or documentation data:\n%s", data)
 	}
@@ -621,7 +639,7 @@ func distributionTestModule(owner, name string, fixtures []distributionTestVersi
 					Name: fixture.namespace,
 					Functions: []registryartifact.APIFunction{{
 						Name:       "RUN",
-						Signatures: []registryartifact.APIFunctionSignature{{Parameters: []string{}}},
+						Signatures: []registryartifact.APIFunctionSignature{{Parameters: []registryartifact.APIParameter{}}},
 					}},
 				}},
 			},

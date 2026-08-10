@@ -327,7 +327,7 @@ func (publishFixtureAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, vers
 			Name: "ARCHIVE",
 			Functions: []registryartifact.APIFunction{{
 				Name:       "OPEN",
-				Signatures: []registryartifact.APIFunctionSignature{{Parameters: []string{}}},
+				Signatures: []registryartifact.APIFunctionSignature{{Parameters: []registryartifact.APIParameter{}}},
 			}},
 		}},
 	}, nil

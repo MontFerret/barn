@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	registryartifact "github.com/MontFerret/specs/pkg/registry/artifact"
@@ -61,6 +62,16 @@ func baseDefinitions() []sdk.FunctionDef {
 }
 
 // Documented is extracted from the registered declaration.
+//
+// The prose remains separate from Ferret metadata.
+//
+// Deprecated: use Parse instead.
+//
+// @param input {String|Binary} Source content.
+// @return {Object} Parsed content.
+// @throws {ParseError} Source content is malformed.
+// @throws {ParseError} Source content cannot be normalized.
+// @deprecated Use Parse instead.
 func Documented(_ context.Context, input runtime.Value) (runtime.Value, error) { return input, nil }
 func Zero(context.Context) (runtime.Value, error) { return nil, nil }
 func Two(_ context.Context, left, _ runtime.Value) (runtime.Value, error) { return left, nil }
@@ -70,6 +81,7 @@ func factory(bool) runtime.Function1 {
 }
 
 // NeverRegistered must not appear in the artifact.
+// @param {String} value
 func NeverRegistered(context.Context) (runtime.Value, error) { return nil, nil }
 `,
 	})
@@ -85,10 +97,29 @@ func NeverRegistered(context.Context) (runtime.Value, error) { return nil, nil }
 		if got, want := functionNames(namespace.Functions), []string{"BOUND", "DOCUMENTED", "FACTORY", "OVERLOAD"}; !reflect.DeepEqual(got, want) {
 			t.Fatalf("%q function names = %#v, want %#v", namespace.Name, got, want)
 		}
-		if got := namespace.Functions[1].Signatures[0].Documentation; got != "Documented is extracted from the registered declaration." {
-			t.Fatalf("documentation = %q", got)
+		signature := namespace.Functions[1].Signatures[0]
+		if got := signature.Description; got != "Documented is extracted from the registered declaration.\n\nThe prose remains separate from Ferret metadata." {
+			t.Fatalf("description = %q", got)
 		}
-		if got, want := namespace.Functions[3].Signatures[1].Parameters, []string{"left", "arg2"}; !reflect.DeepEqual(got, want) {
+		if strings.Contains(signature.Description, "@param") || strings.Contains(signature.Description, "Deprecated:") {
+			t.Fatalf("description contains structured metadata: %q", signature.Description)
+		}
+		if got, want := signature.Parameters, []registryartifact.APIParameter{{Name: "input", Type: "String|Binary", Description: "Source content."}}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("documented parameters = %#v, want %#v", got, want)
+		}
+		if signature.Return == nil || signature.Return.Type != "Object" || signature.Return.Description != "Parsed content." {
+			t.Fatalf("return = %#v", signature.Return)
+		}
+		if got, want := signature.Throws, []registryartifact.APIThrownError{
+			{Error: "ParseError", Description: "Source content is malformed."},
+			{Error: "ParseError", Description: "Source content cannot be normalized."},
+		}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("throws = %#v, want %#v", got, want)
+		}
+		if signature.Deprecated != "Use Parse instead." {
+			t.Fatalf("deprecated = %q", signature.Deprecated)
+		}
+		if got, want := namespace.Functions[3].Signatures[1].Parameters, []registryartifact.APIParameter{{Name: "left"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
 			t.Fatalf("overload parameters = %#v, want %#v", got, want)
 		}
 	}
@@ -114,6 +145,10 @@ func (*mod) Register(bootstrap module.Bootstrap) error {
 }
 func Model(context.Context, runtime.Value, runtime.Value) (runtime.Value, error) { return nil, nil }
 func Session(_ context.Context, model, options runtime.Value) (runtime.Value, error) { return model, nil }
+// Generate produces model output.
+// @param prompt {String} Model prompt.
+// @param options {Object?} Generation options.
+// @return {String} Generated text.
 func Generate(_ context.Context, args ...runtime.Value) (runtime.Value, error) { return nil, nil }
 `,
 	})
@@ -131,8 +166,92 @@ func Generate(_ context.Context, args ...runtime.Value) (runtime.Value, error) {
 	if !reference.Namespaces[0].Functions[0].Signatures[0].Variadic {
 		t.Fatal("GENERATE signature is not variadic")
 	}
-	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []string{"arg1", "arg2"}; !reflect.DeepEqual(got, want) {
+	if got, want := reference.Namespaces[0].Functions[0].Signatures[0].Parameters, []registryartifact.APIParameter{
+		{Name: "prompt", Type: "String", Description: "Model prompt."},
+		{Name: "options", Type: "Object?", Description: "Generation options."},
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("GENERATE parameters = %#v, want %#v", got, want)
+	}
+	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []registryartifact.APIParameter{{Name: "arg1"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("MODEL parameters = %#v, want %#v", got, want)
+	}
+}
+
+func TestAnalyzerRejectsMalformedRegisteredDocumentation(t *testing.T) {
+	repository, moduleDirectory := writeAnalyzerFixture(t, map[string]string{
+		"module/module.go": `package fixture
+
+import (
+	"context"
+	"github.com/MontFerret/ferret/v2/pkg/module"
+	"github.com/MontFerret/ferret/v2/pkg/runtime"
+	"github.com/MontFerret/ferret/v2/pkg/sdk"
+)
+
+func New() module.Module {
+	return sdk.NewModule("fixture", func(bootstrap module.Bootstrap) error {
+		return sdk.RegisterFunctions(bootstrap.Host().Library(), sdk.Func("DECODE", Decode))
+	})
+}
+
+// Decode decodes content.
+// @param {String} data
+func Decode(_ context.Context, args ...runtime.Value) (runtime.Value, error) { return nil, nil }
+`,
+	})
+
+	reference, err := (Analyzer{}).Analyze(context.Background(), repository, moduleDirectory, "example.com/fixture", "owner/fixture", "1.0.0")
+	if reference != nil {
+		t.Fatalf("partial artifact returned: %#v", reference)
+	}
+
+	var analysisError *AnalysisError
+	if !errors.As(err, &analysisError) || analysisError.Kind != ErrorInvalidDocumentation {
+		t.Fatalf("error = %v, want invalid-documentation AnalysisError", err)
+	}
+
+	if analysisError.Position.Filename != "module/module.go" || analysisError.Position.Line != 17 {
+		t.Fatalf("position = %s, want module/module.go:17", analysisError.Position)
+	}
+
+	for _, value := range []string{"Decode", `@param {String} data`, "expected"} {
+		if !strings.Contains(analysisError.Error(), value) {
+			t.Fatalf("diagnostic %q does not contain %q", analysisError, value)
+		}
+	}
+}
+
+func TestAnalyzerRejectsFixedArityDocumentationMismatch(t *testing.T) {
+	repository, moduleDirectory := writeAnalyzerFixture(t, map[string]string{
+		"module/module.go": `package fixture
+
+import (
+	"context"
+	"github.com/MontFerret/ferret/v2/pkg/module"
+	"github.com/MontFerret/ferret/v2/pkg/runtime"
+	"github.com/MontFerret/ferret/v2/pkg/sdk"
+)
+
+func New() module.Module {
+	return sdk.NewModule("fixture", func(bootstrap module.Bootstrap) error {
+		return sdk.RegisterFunctions(bootstrap.Host().Library(), sdk.Func("PAIR", Pair))
+	})
+}
+
+// Pair returns two values.
+// @param left {Any} Left value.
+func Pair(_ context.Context, left, right runtime.Value) (runtime.Value, error) { return nil, nil }
+`,
+	})
+
+	reference, err := (Analyzer{}).Analyze(context.Background(), repository, moduleDirectory, "example.com/fixture", "owner/fixture", "1.0.0")
+	if reference != nil {
+		t.Fatalf("partial artifact returned: %#v", reference)
+	}
+
+	var analysisError *AnalysisError
+	if !errors.As(err, &analysisError) || analysisError.Kind != ErrorInvalidDocumentation || !strings.Contains(err.Error(), "documented parameter count 1 does not match fixed Ferret arity 2") {
+		t.Fatalf("error = %v, want fixed-arity documentation mismatch", err)
 	}
 }
 
