@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/rest",
+  "version": "1.0.0-rc.12",
+  "description": "REST-style HTTP API clients under NET::REST for Ferret.",
+  "namespace": "NET::REST",
+  "ferret": "\u003e=2.0.0-alpha.43 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/net/rest",
+    "commit": "6392e9a9fbda721c9176b8a16ff506ee92050995"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/net/rest"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/article",
+  "version": "1.0.0-rc.16",
+  "namespaces": [
+    {
+      "name": "WEB::ARTICLE",
+      "functions": [
+        {
+          "name": "EXTRACT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Extract returns normalized article content and metadata for the provided HTML.",
+              "return": {
+                "type": "Object",
+                "description": "Normalized article content and metadata."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARKDOWN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Markdown returns only the cleaned article Markdown.",
+              "return": {
+                "type": "String|None",
+                "description": "Cleaned article Markdown or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "TEXT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Text returns only the cleaned article text.",
+              "return": {
+                "type": "String|None",
+                "description": "Cleaned article text or None."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

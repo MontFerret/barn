@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/sitemap",
+  "version": "1.0.0-rc.15",
+  "namespaces": [
+    {
+      "name": "WEB::SITEMAP",
+      "functions": [
+        {
+          "name": "FETCH",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "HTTP or HTTPS sitemap URL."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Fetching and traversal options."
+                }
+              ],
+              "variadic": true,
+              "description": "Fetch fetches and parses a single sitemap document.",
+              "return": {
+                "type": "Object",
+                "description": "Parsed URL set or sitemap index."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STREAM",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "HTTP or HTTPS sitemap URL."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Fetching and traversal options."
+                }
+              ],
+              "variadic": true,
+              "description": "Stream fetches a sitemap tree and returns a lazy URL iterator.",
+              "return": {
+                "type": "Iterator\u003cObject\u003e",
+                "description": "Lazy iterator over URL entries."
+              }
+            }
+          ]
+        },
+        {
+          "name": "URLS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "HTTP or HTTPS sitemap URL."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Fetching and traversal options."
+                }
+              ],
+              "variadic": true,
+              "description": "URLs fetches a sitemap tree and returns flattened URL entries.",
+              "return": {
+                "type": "Array\u003cObject\u003e",
+                "description": "Flattened URL entries."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

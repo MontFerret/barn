@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "networking",
+    "name": "Networking"
+  },
+  "modules": [
+    {
+      "id": "montferret/rest",
+      "href": "/modules/montferret/rest/index.json"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "text-processing",
+    "name": "Text Processing"
+  },
+  "modules": [
+    {
+      "id": "montferret/llm",
+      "href": "/modules/montferret/llm/index.json"
+    }
+  ]
+}

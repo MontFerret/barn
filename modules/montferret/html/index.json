@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/html",
+  "owner": "montferret",
+  "name": "html",
+  "description": "HTML loading, parsing, querying, interaction, and browser automation under WEB::HTML for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.22",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/html/versions/1.0.0-rc.22/index.json"
+    }
+  ]
+}

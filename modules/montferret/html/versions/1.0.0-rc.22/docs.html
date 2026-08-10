@@ -1,0 +1,1249 @@
+<h1 id="html-module">HTML Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/web/html</code> registers HTML loading, parsing, querying, interaction, and browser automation module functions for Ferret hosts.</p>
+<p>The module exposes functions such as:</p>
+<ul>
+<li><code>DOCUMENT</code></li>
+<li><code>PARSE</code></li>
+<li><code>ELEMENT</code></li>
+<li><code>ELEMENTS</code></li>
+<li><code>CLICK</code></li>
+<li><code>INPUT</code></li>
+<li><code>SELECT</code></li>
+<li><code>WAIT_ELEMENT</code></li>
+<li><code>SCREENSHOT</code></li>
+<li><code>PDF</code></li>
+</ul>
+<p>These are module functions and are an important part of the module&#39;s public surface. Query examples in this repository call them directly, for example <code>DOCUMENT(url)</code> and <code>ELEMENT(page, &#34;#content&#34;)</code>.</p>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/web/html
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<p>Register the module with at least one driver. Most hosts should register the in-memory driver as the default and add the CDP driver for browser-backed pages.</p>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	htmlmodule &#34;github.com/MontFerret/contrib/modules/web/html&#34;
+	&#34;github.com/MontFerret/contrib/modules/web/html/drivers/cdp&#34;
+	&#34;github.com/MontFerret/contrib/modules/web/html/drivers/memory&#34;
+)
+
+func main() {
+	htmlMod, err := htmlmodule.New(
+		htmlmodule.WithDefaultDriver(memory.New()),
+		htmlmodule.WithDrivers(
+			cdp.New(cdp.WithAddress(&#34;http://localhost:9222&#34;)),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(htmlMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h3 id="module-options">Module Options</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WithDefaultDriver(driver)</code></td>
+<td>Registers <code>driver</code> and makes it the default for <code>DOCUMENT</code> and <code>PARSE</code> calls that do not specify <code>{ driver: &#34;...&#34; }</code>.</td>
+</tr>
+<tr>
+<td><code>WithDrivers(drivers...)</code></td>
+<td>Registers additional named drivers.</td>
+</tr>
+<tr>
+<td><code>WithNoLib()</code></td>
+<td>Registers the driver container hook without registering the FQL module functions. This is useful only for advanced embedding scenarios.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="drivers">Drivers</h2>
+<p>The module ships with two driver implementations.</p>
+<table>
+<thead>
+<tr>
+<th>Driver</th>
+<th>Package</th>
+<th>Name</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In-memory HTTP/HTML</td>
+<td><code>drivers/memory</code></td>
+<td><code>memory</code></td>
+<td>Fetching static HTML, parsing raw HTML, CSS/XPath queries, and in-memory DOM reads or mutations.</td>
+</tr>
+<tr>
+<td>Chrome DevTools Protocol</td>
+<td><code>drivers/cdp</code></td>
+<td><code>cdp</code></td>
+<td>JavaScript-rendered pages, browser interactions, navigation, scrolling, screenshots, PDFs, network events, and iframe-heavy pages.</td>
+</tr>
+</tbody>
+</table>
+<p>The CDP driver connects to an already-running browser endpoint. By default it uses <code>http://localhost:9222</code>.</p>
+<p>One common local setup is to start Chrome or Chromium with remote debugging enabled:</p>
+<pre><code class="language-sh">chromium --headless=new --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 about:blank
+</code></pre>
+<p>Use the exact browser binary name available in your environment, such as <code>chromium</code>, <code>google-chrome</code>, or <code>Google Chrome</code>.</p>
+<h2 id="loading-pages">Loading Pages</h2>
+<h3 id="load-static-html-over-http">Load Static HTML Over HTTP</h3>
+<p>When the default driver is <code>memory</code>, <code>DOCUMENT(url)</code> fetches and parses the response without launching a browser.</p>
+<pre><code class="language-fql">LET page = DOCUMENT(&#34;https://example.com&#34;)
+
+RETURN {
+  url: page.url,
+  title: page.title,
+  heading: ELEMENT(page, &#34;h1&#34;).innerText
+}
+</code></pre>
+<h3 id="load-a-browser-backed-page">Load A Browser-Backed Page</h3>
+<p>Use the <code>cdp</code> driver when the page needs JavaScript, real browser interaction, navigation waits, screenshots, or PDFs.</p>
+<pre><code class="language-fql">LET page = DOCUMENT(&#34;https://example.com/app&#34;, { driver: &#34;cdp&#34; })
+
+WAIT_ELEMENT(page, &#34;#app&#34;)
+
+RETURN {
+  url: page.url,
+  title: page.title
+}
+</code></pre>
+<h3 id="parse-raw-html">Parse Raw HTML</h3>
+<p><code>PARSE</code> creates an HTML page from a string or binary value.</p>
+<pre><code class="language-fql">LET page = PARSE(`
+  &lt;html&gt;
+    &lt;body&gt;
+      &lt;article id=&#34;post&#34;&gt;
+        &lt;h1&gt;Hello&lt;/h1&gt;
+      &lt;/article&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;
+`)
+
+RETURN ELEMENT(page, &#34;#post h1&#34;).innerText
+</code></pre>
+<h3 id="document-options"><code>DOCUMENT</code> Options</h3>
+<p><code>DOCUMENT(url, params)</code> accepts a map with these keys.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>driver</code></td>
+<td><code>String</code></td>
+<td>Driver name. Use <code>&#34;memory&#34;</code>, <code>&#34;cdp&#34;</code>, or another registered custom driver name.</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>Int</code></td>
+<td>Page load timeout in milliseconds.</td>
+</tr>
+<tr>
+<td><code>userAgent</code></td>
+<td><code>String</code></td>
+<td>User-Agent value for the request or browser page.</td>
+</tr>
+<tr>
+<td><code>keepCookies</code></td>
+<td><code>Boolean</code></td>
+<td>Reuses browser/session cookies where the selected driver supports it.</td>
+</tr>
+<tr>
+<td><code>cookies</code></td>
+<td><code>Object</code> or <code>Object[]</code></td>
+<td>Cookie or cookies to send during loading.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td><code>Object</code></td>
+<td>Request headers.</td>
+</tr>
+<tr>
+<td><code>viewport</code></td>
+<td><code>Object</code></td>
+<td>Browser viewport options: <code>width</code>, <code>height</code>, <code>scaleFactor</code>, <code>mobile</code>, <code>landscape</code>.</td>
+</tr>
+<tr>
+<td><code>ignore.resources</code></td>
+<td><code>Object[]</code></td>
+<td>Resource-blocking rules with <code>url</code> glob and optional <code>type</code>.</td>
+</tr>
+<tr>
+<td><code>ignore.statusCodes</code></td>
+<td><code>Object[]</code></td>
+<td>HTTP status codes to allow, optionally scoped by <code>url</code> glob.</td>
+</tr>
+<tr>
+<td><code>charset</code></td>
+<td><code>String</code></td>
+<td>Source charset to convert to UTF-8. Applies to the memory driver.</td>
+</tr>
+<tr>
+<td><code>initScript</code></td>
+<td><code>Object</code></td>
+<td>CDP-only script with required <code>source</code> and optional <code>timing</code>: <code>afterNavigation</code> (default) or <code>beforeDocument</code>.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fql">LET page = DOCUMENT(&#34;https://example.com/dashboard&#34;, {
+  driver: &#34;cdp&#34;,
+  timeout: 10000,
+  userAgent: &#34;FerretBot/1.0&#34;,
+  viewport: {
+    width: 1280,
+    height: 720
+  },
+  headers: {
+    &#34;X-Trace&#34;: &#34;docs&#34;
+  },
+  initScript: {
+    source: &#34;window.__ferretReady = true&#34;,
+    timing: &#34;beforeDocument&#34;
+  },
+  cookies: [
+    {
+      name: &#34;session&#34;,
+      value: &#34;abc123&#34;,
+      domain: &#34;example.com&#34;,
+      path: &#34;/&#34;,
+      httpOnly: true,
+      secure: true
+    }
+  ],
+  ignore: {
+    resources: [
+      { url: &#34;*.png&#34;, type: &#34;Image&#34; }
+    ],
+    statusCodes: [
+      { url: &#34;https://example.com/optional/*&#34;, code: 404 }
+    ]
+  }
+})
+
+RETURN page.url
+</code></pre>
+<p><code>DOCUMENT(url, &#34;cdp&#34;)</code> is also supported as a shorthand for selecting a driver by name.</p>
+<p><code>afterNavigation</code> evaluates the script after each successful CDP-controlled initial,
+explicit, back, or forward navigation reaches Ferret&#39;s main-frame readiness point.
+<code>beforeDocument</code> uses the browser&#39;s new-document mechanism before the first real
+navigation, so same-target frames can observe it from their earliest page code,
+subject to browser target limitations, and it remains installed across redirects
+and reloads. The memory driver rejects <code>initScript</code>.</p>
+<h3 id="parse-options"><code>PARSE</code> Options</h3>
+<p><code>PARSE(html, params)</code> accepts <code>driver</code>, <code>keepCookies</code>, <code>cookies</code>, <code>headers</code>, and <code>viewport</code>.</p>
+<pre><code class="language-fql">LET page = PARSE(&#34;&lt;html&gt;&lt;body&gt;&lt;h1&gt;Loaded&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;&#34;, {
+  driver: &#34;memory&#34;
+})
+
+RETURN ELEMENT(page, &#34;h1&#34;).innerText
+</code></pre>
+<h2 id="querying">Querying</h2>
+<p>Use CSS selectors by default.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+LET item = ELEMENT(page, &#34;.product&#34;)
+
+RETURN {
+  title: ELEMENT(item, &#34;.title&#34;).innerText,
+  price: ELEMENT(item, &#34;.price&#34;).innerText,
+  count: ELEMENTS_COUNT(page, &#34;.product&#34;)
+}
+</code></pre>
+<p>Use <code>ELEMENTS</code> for all matches and <code>ELEMENT_EXISTS</code> to test a selector without failing a flow.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+
+FOR link IN ELEMENTS(page, &#34;a[href]&#34;)
+  RETURN {
+    text: link.innerText,
+    href: link.attributes.href
+  }
+</code></pre>
+<p>XPath selectors can be passed directly with <code>X(...)</code> or evaluated through <code>XPATH(...)</code>.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+
+RETURN {
+  first: ELEMENT(page, X(&#34;//main//h1&#34;)).innerText,
+  raw: XPATH(page, &#34;//a/@href&#34;)
+}
+</code></pre>
+<p>Query module functions accept <code>HTMLPage</code>, <code>HTMLDocument</code>, and <code>HTMLElement</code> roots where the underlying function supports root targets. This makes it practical to narrow a query step by step:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+LET main = ELEMENT(page, &#34;main&#34;)
+
+RETURN ELEMENTS(main, &#34;article&#34;)
+</code></pre>
+<h3 id="ferret-v2-query-syntax">Ferret v2 Query Syntax</h3>
+<p>The function-backed query style above is still supported. Ferret v2 also provides query expressions that work directly with queryable HTML values.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+
+LET first = QUERY ONE &#34;.product&#34; IN page USING css
+LET count = QUERY COUNT &#34;.product&#34; IN page USING css
+LET hasFeatured = QUERY EXISTS &#34;.product.featured&#34; IN page USING css
+
+RETURN {
+  title: (QUERY VALUE &#34;.title&#34; IN first USING css).innerText,
+  count: count,
+  hasFeatured: hasFeatured
+}
+</code></pre>
+<p>Use <code>QUERY VALUE</code> when a missing result should be an error, <code>QUERY ONE</code> when exactly one result is required, <code>QUERY ANY</code> when the first result is enough, <code>QUERY EXISTS</code> for booleans, and <code>QUERY COUNT</code> for counts.</p>
+<p><code>QUERY ... IN . USING css</code> is useful inside projections where <code>.</code> is the current value:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+LET sections = QUERY &#34;.section&#34; IN page USING css
+
+RETURN sections[* RETURN {
+  heading: (QUERY VALUE &#34;h2&#34; IN . USING css).innerText,
+  links: QUERY &#34;a&#34; IN . USING css
+}]
+</code></pre>
+<h3 id="cssx-selection-pipelines">CSSX Selection Pipelines</h3>
+<p>CSS queries can use CSSX pseudo-functions to transform and refine their results. Pseudo-functions operate on a normalized selection, so singular projection names such as <code>:text</code> and <code>:attr</code> apply to every selected item.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+
+LET paragraphs = QUERY &#34;:text(p)&#34; IN page USING css
+LET links = QUERY &#39;a &gt;&gt; :attr(&#34;href&#34;) &gt;&gt; :compact() &gt;&gt; :distinct()&#39; IN page USING css
+LET cards = QUERY &#39;.card &gt;&gt; :has(&#34;.price&#34;) &gt;&gt; :children(&#34;.title&#34;) &gt;&gt; :text()&#39; IN page USING css
+
+RETURN {
+  paragraphs: paragraphs,
+  links: links,
+  firstParagraph: QUERY ONE &#34;:text(p)&#34; IN page USING css,
+  cards: cards
+}
+</code></pre>
+<p><code>QUERY</code> returns the complete final selection. <code>QUERY ONE</code> evaluates the same pipeline and returns its first final value. <code>QUERY COUNT</code> and <code>QUERY EXISTS</code> inspect the final result shape.</p>
+<p>CSSX operation families:</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Operations</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Maps</td>
+<td><code>text</code>, <code>ownText</code>, <code>normalize</code>, <code>trim</code>, <code>attr</code>, <code>prop</code>, <code>html</code>, <code>outerHtml</code>, <code>value</code>, <code>absUrl</code>, <code>url</code>, <code>parseUrl</code>, <code>replace</code>, <code>regex</code>, <code>toNumber</code>, <code>toDate</code></td>
+<td>Return one value per input slot and preserve missing values as <code>NONE</code>.</td>
+</tr>
+<tr>
+<td>Traversals</td>
+<td><code>parent</code>, <code>closest</code>, <code>children</code>, <code>next</code>, <code>prev</code>, <code>siblings</code></td>
+<td>Flat-map nodes in input order, preserve duplicates, and omit missing traversal results.</td>
+</tr>
+<tr>
+<td>Filters</td>
+<td><code>within</code>, <code>has</code>, <code>matches</code>, <code>not</code>, <code>withAttr</code>, <code>withText</code></td>
+<td>Keep matching nodes from the input selection.</td>
+</tr>
+<tr>
+<td>Selection operators</td>
+<td><code>take</code>, <code>skip</code>, <code>slice</code>, <code>compact</code>, <code>distinct</code>, <code>dedupeByAttr</code>, <code>dedupeByText</code></td>
+<td>Return another selection. <code>compact</code> removes <code>NONE</code>; <code>distinct</code> performs stable identity/value deduplication.</td>
+</tr>
+<tr>
+<td>Reducers</td>
+<td><code>exists</code>, <code>empty</code>, <code>count</code>, <code>one</code>, <code>indexOf</code>, <code>len</code>, <code>join</code></td>
+<td>Collapse the selection to one value.</td>
+</tr>
+<tr>
+<td>Cardinality</td>
+<td><code>first</code>, <code>last</code>, <code>nth</code></td>
+<td>Collapse to one item or <code>NONE</code>; a following ordinary pseudo-function lifts the item into a selection again.</td>
+</tr>
+</tbody>
+</table>
+<p>Predicates and filtered traversals take a literal CSS criterion evaluated relative to each input node:</p>
+<pre><code class="language-fql">LET priced = QUERY &#39;.product &gt;&gt; :has(&#34;.price&#34;)&#39; IN page USING css
+LET inactive = QUERY &#39;li &gt;&gt; :not(&#34;.active&#34;)&#39; IN page USING css
+LET containers = QUERY &#39;:closest(&#34;.card&#34;, .title)&#39; IN page USING css
+</code></pre>
+<p>Mapped <code>NONE</code> values keep their positions and count toward <code>count</code>, <code>exists</code>, <code>empty</code>, and <code>one</code>. Use <code>:compact()</code> when missing values should be removed before a reducer.</p>
+<h2 id="reading-and-mutating-dom-content">Reading And Mutating DOM Content</h2>
+<p>HTML page, document, and element values expose a dot-access surface for convenient reads. Static/memory-backed values are read-only through dot access. CDP-backed elements also support a small write-through assignment surface.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+LET input = ELEMENT(page, &#34;input[name=q]&#34;)
+
+RETURN {
+  url: page.url,
+  document: page.document,
+  title: page.title,
+  value: input.value,
+  text: input.innerText,
+  html: input.innerHTML,
+  attrs: input.attributes,
+  styles: input.style
+}
+</code></pre>
+<p>Common readable properties include:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Properties</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HTMLPage</code></td>
+<td><code>response</code>, <code>mainFrame</code>, <code>document</code>, <code>frames</code>, <code>url</code>, <code>URL</code>, <code>cookies</code>, <code>title</code>, <code>isClosed</code>, plus document properties through the main frame.</td>
+</tr>
+<tr>
+<td><code>HTMLDocument</code></td>
+<td><code>url</code>, <code>URL</code>, <code>name</code>, <code>title</code>, <code>parent</code>, <code>body</code>, <code>head</code>, <code>innerHTML</code>, <code>innerText</code>, plus node properties.</td>
+</tr>
+<tr>
+<td><code>HTMLElement</code></td>
+<td><code>innerText</code>, <code>innerHTML</code>, <code>textContent</code>, <code>value</code>, <code>checked</code> (CDP), <code>disabled</code> (CDP), <code>selected</code> (CDP), <code>attributes</code>, <code>style</code>, <code>classes</code> (CDP), <code>dataset</code> (CDP), <code>previousElementSibling</code>, <code>nextElementSibling</code>, <code>parentElement</code>, plus node properties.</td>
+</tr>
+<tr>
+<td>HTML node values</td>
+<td>integer child indexes, <code>nodeType</code>, <code>nodeName</code>, <code>children</code>, <code>length</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Use the mutation module functions for driver-portable writes:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+INNER_TEXT_SET(page, &#34;#status&#34;, &#34;Ready&#34;)
+INNER_HTML_SET(page, &#34;#preview&#34;, &#34;&lt;strong&gt;Ready&lt;/strong&gt;&#34;)
+LET preview = ELEMENT(page, &#34;#preview&#34;)
+ATTR_SET(preview, &#34;data-state&#34;, &#34;ready&#34;)
+STYLE_SET(preview, &#34;display&#34;, &#34;block&#34;)
+
+RETURN preview.innerHTML
+</code></pre>
+<p>CDP-backed elements can also be mutated with normal assignment. Top-level assignment supports content/value properties plus <code>attributes</code>, <code>style</code>, <code>classes</code>, and <code>dataset</code>; nested assignment writes through snapshot views returned by those collection properties. A captured view keeps its read snapshot while writes through that view update the browser:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+LET button = ELEMENT(page, &#34;button[type=submit]&#34;)
+
+button.textContent = &#34;Continue&#34;
+button.innerHTML = &#34;&lt;strong&gt;Continue&lt;/strong&gt;&#34;
+button.disabled = FALSE
+button.attributes = { &#34;aria-label&#34;: &#34;Continue&#34; }
+button.attributes[&#34;data-state&#34;] = &#34;ready&#34;
+button.style.display = &#34;block&#34;
+button.classes.active = TRUE
+button.dataset.productId = &#34;123&#34;
+
+button.attributes[&#34;data-state&#34;] = NONE
+button.style.display = NONE
+button.classes.active = FALSE
+button.dataset.productId = NONE
+</code></pre>
+<p>Attribute and style module functions can work with individual names or maps depending on the function:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url)
+LET card = ELEMENT(page, &#34;.card&#34;)
+
+RETURN {
+  attrs: ATTR_GET(card, &#34;id&#34;, &#34;class&#34;, &#34;data-kind&#34;),
+  matching: ATTR_QUERY(page, &#34;.card&#34;, &#34;data-kind&#34;),
+  styles: STYLE_GET(card, &#34;display&#34;, &#34;color&#34;)
+}
+</code></pre>
+<h2 id="browser-interaction">Browser Interaction</h2>
+<p>Browser-style interaction requires a driver that supports interaction capabilities. In practice, use the CDP driver for user-like workflows.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+WAIT_ELEMENT(page, &#34;form&#34;)
+INPUT(page, &#34;input[name=email]&#34;, &#34;user@example.com&#34;)
+INPUT(page, &#34;input[name=password]&#34;, &#34;secret&#34;)
+CLICK(page, &#34;button[type=submit]&#34;)
+WAIT_NAVIGATION(page, { timeout: 10000 })
+
+RETURN page.url
+</code></pre>
+<p><code>SELECT</code> supports both single and multiple values, matching the browser <code>&lt;select&gt;</code> element behavior.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+WAIT_ELEMENT(page, &#34;#multi_select_input&#34;)
+
+RETURN SELECT(page, &#34;#multi_select_input&#34;, [&#34;1&#34;, &#34;2&#34;, &#34;4&#34;])
+</code></pre>
+<p>Other interaction module functions include:</p>
+<pre><code class="language-fql">FOCUS(page, &#34;input[name=q]&#34;)
+PRESS(ELEMENT(page, &#34;input[name=q]&#34;), &#34;Enter&#34;)
+PRESS_SELECTOR(page, &#34;input[name=q]&#34;, &#34;Meta+A&#34;)
+INPUT_CLEAR(page, &#34;input[name=q]&#34;)
+HOVER(page, &#34;.menu&#34;)
+UNHOVER(page, &#34;.menu&#34;)
+BLUR(page, &#34;input[name=q]&#34;)
+MOUSE(page, 100, 200)
+</code></pre>
+<h3 id="ferret-v2-dispatch-syntax">Ferret v2 Dispatch Syntax</h3>
+<p>Ferret v2 supports both long-form dispatch and receiver-first shorthand dispatch for values that implement Ferret&#39;s dispatcher contract:</p>
+<pre><code class="language-fql">DISPATCH &#34;click&#34; IN target
+target &lt;- &#34;click&#34;
+</code></pre>
+<p>With the CDP driver, <code>HTMLPage</code>, <code>HTMLDocument</code>, and <code>HTMLElement</code> values support browser-backed dispatch actions. <code>WITH { ... }</code> is the action payload, and dispatch <code>OPTIONS</code> are reserved.</p>
+<pre><code class="language-fql">DISPATCH &#34;click&#34; IN button
+DISPATCH &#34;input&#34; IN searchBox WITH { value: &#34;macbook&#34; }
+DISPATCH &#34;select&#34; IN countrySelect WITH { value: &#34;US&#34; }
+DISPATCH &#34;keydown&#34; IN input WITH { key: &#34;Enter&#34; }
+DISPATCH &#34;type&#34; IN input WITH { text: &#34;macbook pro&#34;, delay: 50 }
+DISPATCH &#34;scroll&#34; IN doc WITH { y: 1200 }
+DISPATCH &#34;scroll&#34; IN doc WITH { to: &#34;bottom&#34; }
+DISPATCH &#34;scroll&#34; IN container WITH { by: { y: 800 } }
+DISPATCH &#34;scroll&#34; IN item WITH { intoView: true }
+</code></pre>
+<p>Supported CDP dispatch event names are:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Events</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse</td>
+<td><code>click</code>, <code>dblclick</code>, <code>mousedown</code>, <code>mouseup</code>, <code>mouseover</code>, <code>mouseout</code>, <code>mousemove</code></td>
+</tr>
+<tr>
+<td>Keyboard</td>
+<td><code>keydown</code>, <code>keyup</code>, <code>keypress</code>, <code>press</code>, <code>type</code></td>
+</tr>
+<tr>
+<td>Forms</td>
+<td><code>input</code>, <code>change</code>, <code>submit</code>, <code>reset</code>, <code>focus</code>, <code>blur</code>, <code>check</code>, <code>uncheck</code>, <code>toggle</code>, <code>select</code></td>
+</tr>
+<tr>
+<td>Scroll</td>
+<td><code>scroll</code></td>
+</tr>
+</tbody>
+</table>
+<p>Mouse payloads may include <code>button</code>, <code>count</code>, <code>x</code>, and <code>y</code>. Keyboard <code>press</code> accepts <code>key</code> or <code>keys</code>; <code>type</code> accepts <code>text</code>, optional <code>delay</code>, and optional <code>clear</code>. Form <code>input</code> and <code>select</code> require <code>value</code>; <code>change</code> may include <code>value</code>. Scroll accepts absolute coordinates via <code>x</code>/<code>y</code> or <code>to</code>, named absolute targets via <code>to: &#34;top&#34;</code> or <code>to: &#34;bottom&#34;</code>, relative coordinates via <code>by</code>, or <code>intoView: true</code>.</p>
+<p>Navigation and scrolling module functions:</p>
+<pre><code class="language-fql">NAVIGATE(page, &#34;https://example.com/next&#34;)
+NAVIGATE_BACK(page)
+NAVIGATE_FORWARD(page)
+SCROLL(page, 0, 400)
+SCROLL_TOP(page)
+SCROLL_BOTTOM(page)
+SCROLL_ELEMENT(page, &#34;#target&#34;)
+</code></pre>
+<h2 id="waiting">Waiting</h2>
+<p>Wait module functions suspend execution until a condition is met or the current context times out.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+WAIT_ELEMENT(page, &#34;#loaded&#34;)
+WAIT_CLASS(page, &#34;#status&#34;, &#34;ready&#34;)
+WAIT_ATTR(page, &#34;#status&#34;, &#34;data-state&#34;, &#34;ready&#34;)
+WAIT_STYLE(page, &#34;#status&#34;, &#34;display&#34;, &#34;block&#34;)
+
+RETURN INNER_TEXT(page, &#34;#status&#34;)
+</code></pre>
+<p>Each condition has a negative form and an all-matches form:</p>
+<table>
+<thead>
+<tr>
+<th>Positive</th>
+<th>Negative</th>
+<th>All-Matches Positive</th>
+<th>All-Matches Negative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WAIT_ELEMENT</code></td>
+<td><code>WAIT_NO_ELEMENT</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>WAIT_ATTR</code></td>
+<td><code>WAIT_NO_ATTR</code></td>
+<td><code>WAIT_ATTR_ALL</code></td>
+<td><code>WAIT_NO_ATTR_ALL</code></td>
+</tr>
+<tr>
+<td><code>WAIT_CLASS</code></td>
+<td><code>WAIT_NO_CLASS</code></td>
+<td><code>WAIT_CLASS_ALL</code></td>
+<td><code>WAIT_NO_CLASS_ALL</code></td>
+</tr>
+<tr>
+<td><code>WAIT_STYLE</code></td>
+<td><code>WAIT_NO_STYLE</code></td>
+<td><code>WAIT_STYLE_ALL</code></td>
+<td><code>WAIT_NO_STYLE_ALL</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>WAIT_NAVIGATION(page, params?)</code> for browser navigation. It accepts either a timeout integer or a parameter map with <code>timeout</code>, <code>target</code>, and <code>frame</code>.</p>
+<pre><code class="language-fql">CLICK(page, &#34;a.next&#34;)
+WAIT_NAVIGATION(page, {
+  target: &#34;https://example.com/next&#34;,
+  timeout: 10000
+})
+</code></pre>
+<h3 id="ferret-v2-waitfor-syntax">Ferret v2 <code>WAITFOR</code> Syntax</h3>
+<p>The function-backed wait style above is useful for common DOM conditions. Ferret v2 also provides <code>WAITFOR VALUE</code> for polling any expression until it becomes meaningful.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+LET first = WAITFOR VALUE (QUERY ONE &#34;.track[data-index=&#39;0&#39;]&#34; IN page USING css)
+  TIMEOUT 10s
+  EVERY 250ms
+  ON TIMEOUT RETURN NONE
+
+RETURN first == NONE ? NONE : first.innerText
+</code></pre>
+<p>For browser-backed pages, <code>WAITFOR EVENT</code> subscribes to page, network, navigation, document, or element events.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+INPUT(page, &#34;#url&#34;, &#34;https://example.com/next&#34;)
+CLICK(page, &#34;#submit&#34;)
+
+WAITFOR EVENT &#34;navigation&#34; IN page
+
+RETURN page.url
+</code></pre>
+<p><code>WAITFOR EVENT</code> can filter events with <code>WHEN</code>, configure event-specific options, and recover from timeouts:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+CLICK(page, &#34;#load-data&#34;)
+
+LET evt = WAITFOR EVENT &#34;network.request_finished&#34; IN page
+  OPTIONS { captureBody: true, bodyLimit: 4096 }
+  WHEN CONTAINS(.url, &#34;/api/data&#34;)
+  AND .status == 200
+  AND .type == &#34;fetch&#34;
+  TIMEOUT 10s
+  ON TIMEOUT RETURN NONE
+
+RETURN evt == NONE ? NONE : {
+  status: evt.status,
+  body: evt.body,
+  truncated: evt.bodyTruncated
+}
+</code></pre>
+<p>DOM custom events can be observed from documents or elements:</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+LET target = ELEMENT(page, &#34;#observable-element-target&#34;)
+
+CLICK(page, &#34;#observable-element-btn&#34;)
+
+LET evt = WAITFOR EVENT &#34;ferret:element&#34; IN target
+  WHEN .detail.scope == &#34;element&#34;
+
+RETURN evt.detail
+</code></pre>
+<h2 id="cookies-headers-frames-and-page-artifacts">Cookies, Headers, Frames, And Page Artifacts</h2>
+<p>Page cookies can be read through <code>page.cookies</code> or through <code>COOKIE_GET</code>, and can be changed with <code>COOKIE_SET</code> and <code>COOKIE_DEL</code> where the selected driver supports page cookies.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, {
+  driver: &#34;cdp&#34;,
+  cookies: {
+    name: &#34;mode&#34;,
+    value: &#34;docs&#34;,
+    domain: &#34;example.com&#34;,
+    path: &#34;/&#34;
+  }
+})
+
+COOKIE_SET(page, {
+  name: &#34;seen&#34;,
+  value: &#34;true&#34;,
+  domain: &#34;example.com&#34;,
+  path: &#34;/&#34;
+})
+
+RETURN COOKIE_GET(page, &#34;seen&#34;)
+</code></pre>
+<p>Frame module functions read the current page frame tree.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+WAIT_ELEMENT(page, &#34;iframe&#34;)
+
+FOR frame IN FRAMES(page, 0, 10)
+  RETURN {
+    name: frame.name,
+    url: frame.url
+  }
+</code></pre>
+<p>Screenshots and PDFs return binary values.</p>
+<pre><code class="language-fql">LET page = DOCUMENT($url, { driver: &#34;cdp&#34; })
+
+RETURN {
+  screenshot: SCREENSHOT(page, {
+    format: &#34;png&#34;,
+    width: 1280,
+    height: 720
+  }),
+  pdf: PDF(page, {
+    printBackground: true,
+    preferCSSPageSize: true
+  })
+}
+</code></pre>
+<p><code>SCREENSHOT</code> and <code>PDF</code> also accept a URL string as the target. In that form the function opens the page and closes it after capturing the artifact.</p>
+<h2 id="function-reference">Function Reference</h2>
+<h3 id="loading-and-type-checks">Loading And Type Checks</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCUMENT</code></td>
+<td><code>DOCUMENT(url, params?)</code></td>
+<td><code>HTMLPage</code></td>
+<td>Loads a URL through the default or named driver.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT_EXISTS</code></td>
+<td><code>DOCUMENT_EXISTS(url, options?)</code></td>
+<td><code>Boolean</code></td>
+<td>Checks whether a document can be loaded. Supports request headers.</td>
+</tr>
+<tr>
+<td><code>PARSE</code></td>
+<td><code>PARSE(htmlOrBinary, params?)</code></td>
+<td><code>HTMLPage</code></td>
+<td>Parses raw HTML content into an HTML page.</td>
+</tr>
+<tr>
+<td><code>IS_HTML_DOCUMENT</code></td>
+<td><code>IS_HTML_DOCUMENT(value)</code></td>
+<td><code>Boolean</code></td>
+<td>Reports whether a value is an <code>HTMLDocument</code>.</td>
+</tr>
+<tr>
+<td><code>IS_HTML_ELEMENT</code></td>
+<td><code>IS_HTML_ELEMENT(value)</code></td>
+<td><code>Boolean</code></td>
+<td>Reports whether a value is an <code>HTMLElement</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="querying-1">Querying</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ELEMENT</code></td>
+<td><code>ELEMENT(root, selector)</code></td>
+<td><code>HTMLElement | None</code></td>
+<td>Returns the first matching element.</td>
+</tr>
+<tr>
+<td><code>ELEMENTS</code></td>
+<td><code>ELEMENTS(root, selector)</code></td>
+<td><code>HTMLElement[]</code></td>
+<td>Returns all matching elements.</td>
+</tr>
+<tr>
+<td><code>ELEMENT_EXISTS</code></td>
+<td><code>ELEMENT_EXISTS(root, selector)</code></td>
+<td><code>Boolean</code></td>
+<td>Reports whether at least one match exists.</td>
+</tr>
+<tr>
+<td><code>ELEMENTS_COUNT</code></td>
+<td><code>ELEMENTS_COUNT(root, selector)</code></td>
+<td><code>Int</code></td>
+<td>Counts matching elements.</td>
+</tr>
+<tr>
+<td><code>X</code></td>
+<td><code>X(expression)</code></td>
+<td><code>QuerySelector</code></td>
+<td>Builds an XPath selector value.</td>
+</tr>
+<tr>
+<td><code>XPATH</code></td>
+<td><code>XPATH(root, expression)</code></td>
+<td><code>Any</code></td>
+<td>Evaluates an XPath expression.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="content-attributes-and-styles">Content, Attributes, And Styles</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INNER_TEXT</code></td>
+<td><code>INNER_TEXT(root, selector?)</code></td>
+<td><code>String</code></td>
+<td>Reads text from a root or selected element.</td>
+</tr>
+<tr>
+<td><code>INNER_TEXT_ALL</code></td>
+<td><code>INNER_TEXT_ALL(root, selector)</code></td>
+<td><code>String[]</code></td>
+<td>Reads text from every matching element.</td>
+</tr>
+<tr>
+<td><code>INNER_TEXT_SET</code></td>
+<td><code>INNER_TEXT_SET(root, selector?, value)</code></td>
+<td><code>None</code></td>
+<td>Sets text on a root or selected element.</td>
+</tr>
+<tr>
+<td><code>INNER_HTML</code></td>
+<td><code>INNER_HTML(root, selector?)</code></td>
+<td><code>String</code></td>
+<td>Reads HTML from a root or selected element.</td>
+</tr>
+<tr>
+<td><code>INNER_HTML_ALL</code></td>
+<td><code>INNER_HTML_ALL(root, selector)</code></td>
+<td><code>String[]</code></td>
+<td>Reads HTML from every matching element.</td>
+</tr>
+<tr>
+<td><code>INNER_HTML_SET</code></td>
+<td><code>INNER_HTML_SET(root, selector?, value)</code></td>
+<td><code>None</code></td>
+<td>Sets HTML on a root or selected element.</td>
+</tr>
+<tr>
+<td><code>ATTR_GET</code></td>
+<td><code>ATTR_GET(root, name...)</code></td>
+<td><code>Object</code></td>
+<td>Reads selected attributes.</td>
+</tr>
+<tr>
+<td><code>ATTR_QUERY</code></td>
+<td><code>ATTR_QUERY(root, selector, name...)</code></td>
+<td><code>Object</code></td>
+<td>Reads selected attributes from the first matching element.</td>
+</tr>
+<tr>
+<td><code>ATTR_SET</code></td>
+<td><code>ATTR_SET(root, nameOrMap, value?)</code></td>
+<td><code>None</code></td>
+<td>Sets one or more attributes.</td>
+</tr>
+<tr>
+<td><code>ATTR_REMOVE</code></td>
+<td><code>ATTR_REMOVE(root, name...)</code></td>
+<td><code>None</code></td>
+<td>Removes attributes.</td>
+</tr>
+<tr>
+<td><code>STYLE_GET</code></td>
+<td><code>STYLE_GET(element, name...)</code></td>
+<td><code>Object</code></td>
+<td>Reads selected style values.</td>
+</tr>
+<tr>
+<td><code>STYLE_SET</code></td>
+<td><code>STYLE_SET(element, nameOrMap, value?)</code></td>
+<td><code>None</code></td>
+<td>Sets one or more style values.</td>
+</tr>
+<tr>
+<td><code>STYLE_REMOVE</code></td>
+<td><code>STYLE_REMOVE(element, name...)</code></td>
+<td><code>None</code></td>
+<td>Removes style values.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="interaction">Interaction</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CLICK</code></td>
+<td><code>CLICK(root, selectorOrCount?, count?)</code></td>
+<td><code>Boolean</code></td>
+<td>Clicks a root or selected element.</td>
+</tr>
+<tr>
+<td><code>CLICK_ALL</code></td>
+<td><code>CLICK_ALL(root, selector, count?)</code></td>
+<td><code>Boolean</code></td>
+<td>Clicks every matching element.</td>
+</tr>
+<tr>
+<td><code>INPUT</code></td>
+<td><code>INPUT(root, selector?, value, delay?)</code></td>
+<td><code>Boolean</code></td>
+<td>Types into a root or selected input target.</td>
+</tr>
+<tr>
+<td><code>INPUT_CLEAR</code></td>
+<td><code>INPUT_CLEAR(root, selector?)</code></td>
+<td><code>Boolean</code></td>
+<td>Clears a root or selected input target.</td>
+</tr>
+<tr>
+<td><code>PRESS</code></td>
+<td><code>PRESS(root, keys, count?)</code></td>
+<td><code>Boolean</code></td>
+<td>Sends keyboard input to the root target.</td>
+</tr>
+<tr>
+<td><code>PRESS_SELECTOR</code></td>
+<td><code>PRESS_SELECTOR(root, selector, keys, count?)</code></td>
+<td><code>Boolean</code></td>
+<td>Sends keyboard input to a selected element.</td>
+</tr>
+<tr>
+<td><code>SELECT</code></td>
+<td><code>SELECT(root, selector?, valueOrValues)</code></td>
+<td><code>String[]</code></td>
+<td>Selects values in a <code>&lt;select&gt;</code> element.</td>
+</tr>
+<tr>
+<td><code>FOCUS</code></td>
+<td><code>FOCUS(root, selector?)</code></td>
+<td><code>Boolean</code></td>
+<td>Focuses a root or selected element.</td>
+</tr>
+<tr>
+<td><code>BLUR</code></td>
+<td><code>BLUR(root, selector?)</code></td>
+<td><code>Boolean</code></td>
+<td>Blurs a root or selected element.</td>
+</tr>
+<tr>
+<td><code>HOVER</code></td>
+<td><code>HOVER(root, selector?)</code></td>
+<td><code>Boolean</code></td>
+<td>Hovers a root or selected element.</td>
+</tr>
+<tr>
+<td><code>UNHOVER</code></td>
+<td><code>UNHOVER(root, selector?)</code></td>
+<td><code>Boolean</code></td>
+<td>Moves the mouse outside a root or selected element using a randomized offset.</td>
+</tr>
+<tr>
+<td><code>MOUSE</code></td>
+<td><code>MOUSE(pageOrDocument, x, y)</code></td>
+<td><code>Boolean</code></td>
+<td>Moves the mouse to absolute viewport coordinates; returns false when it cannot move further or is already at the target.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="navigation-scrolling-and-waiting">Navigation, Scrolling, And Waiting</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NAVIGATE</code></td>
+<td><code>NAVIGATE(page, url)</code></td>
+<td><code>Boolean</code></td>
+<td>Navigates the page.</td>
+</tr>
+<tr>
+<td><code>NAVIGATE_BACK</code></td>
+<td><code>NAVIGATE_BACK(page, skip?)</code></td>
+<td><code>Boolean</code></td>
+<td>Navigates backward in browser history.</td>
+</tr>
+<tr>
+<td><code>NAVIGATE_FORWARD</code></td>
+<td><code>NAVIGATE_FORWARD(page, skip?)</code></td>
+<td><code>Boolean</code></td>
+<td>Navigates forward in browser history.</td>
+</tr>
+<tr>
+<td><code>WAIT_NAVIGATION</code></td>
+<td><code>WAIT_NAVIGATION(page, paramsOrTimeout?)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for page or frame navigation.</td>
+</tr>
+<tr>
+<td><code>SCROLL</code></td>
+<td><code>SCROLL(root, x, y, options?)</code></td>
+<td><code>Boolean</code></td>
+<td>Scrolls to absolute viewport coordinates; returns false when already at the effective target.</td>
+</tr>
+<tr>
+<td><code>SCROLL_TOP</code></td>
+<td><code>SCROLL_TOP(root, options?)</code></td>
+<td><code>Boolean</code></td>
+<td>Scrolls to the top; returns false when already there.</td>
+</tr>
+<tr>
+<td><code>SCROLL_BOTTOM</code></td>
+<td><code>SCROLL_BOTTOM(root, options?)</code></td>
+<td><code>Boolean</code></td>
+<td>Scrolls to the bottom; returns false when already there.</td>
+</tr>
+<tr>
+<td><code>SCROLL_ELEMENT</code></td>
+<td><code>SCROLL_ELEMENT(root, selectorOrOptions?, options?)</code></td>
+<td><code>Boolean</code></td>
+<td>Scrolls an element into view; selector-based calls return false when it is already fully visible.</td>
+</tr>
+<tr>
+<td><code>WAIT_ELEMENT</code> / <code>WAIT_NO_ELEMENT</code></td>
+<td><code>WAIT_ELEMENT(root, selector)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for element presence or absence.</td>
+</tr>
+<tr>
+<td><code>WAIT_ATTR</code> / <code>WAIT_NO_ATTR</code></td>
+<td><code>WAIT_ATTR(root, selector?, name, value)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for attribute state.</td>
+</tr>
+<tr>
+<td><code>WAIT_ATTR_ALL</code> / <code>WAIT_NO_ATTR_ALL</code></td>
+<td><code>WAIT_ATTR_ALL(root, selector, name, value)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for all matching elements.</td>
+</tr>
+<tr>
+<td><code>WAIT_CLASS</code> / <code>WAIT_NO_CLASS</code></td>
+<td><code>WAIT_CLASS(root, selector?, class)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for class state.</td>
+</tr>
+<tr>
+<td><code>WAIT_CLASS_ALL</code> / <code>WAIT_NO_CLASS_ALL</code></td>
+<td><code>WAIT_CLASS_ALL(root, selector, class)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for all matching elements.</td>
+</tr>
+<tr>
+<td><code>WAIT_STYLE</code> / <code>WAIT_NO_STYLE</code></td>
+<td><code>WAIT_STYLE(root, selector?, name, value)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for style state.</td>
+</tr>
+<tr>
+<td><code>WAIT_STYLE_ALL</code> / <code>WAIT_NO_STYLE_ALL</code></td>
+<td><code>WAIT_STYLE_ALL(root, selector, name, value)</code></td>
+<td><code>Boolean</code></td>
+<td>Waits for all matching elements.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="page-data-and-artifacts">Page Data And Artifacts</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>URL</code></td>
+<td><code>URL(pageOrDocument)</code></td>
+<td><code>String</code></td>
+<td>Returns the current document URL.</td>
+</tr>
+<tr>
+<td><code>BASE_URL</code></td>
+<td><code>BASE_URL(pageOrDocument)</code></td>
+<td><code>String</code></td>
+<td>Returns the effective document base URL, including <code>&lt;base&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>RESOLVE_URL</code></td>
+<td><code>RESOLVE_URL(pageOrDocument, url)</code></td>
+<td><code>String</code></td>
+<td>Resolves a URL against the effective document base URL.</td>
+</tr>
+<tr>
+<td><code>COOKIE_GET</code></td>
+<td><code>COOKIE_GET(page, name)</code></td>
+<td><code>HTTPCookie | None</code></td>
+<td>Reads a page cookie by name.</td>
+</tr>
+<tr>
+<td><code>COOKIE_SET</code></td>
+<td><code>COOKIE_SET(page, cookieOrCookies...)</code></td>
+<td><code>None</code></td>
+<td>Sets page cookies.</td>
+</tr>
+<tr>
+<td><code>COOKIE_DEL</code></td>
+<td><code>COOKIE_DEL(page, cookieOrNames...)</code></td>
+<td><code>None</code></td>
+<td>Deletes page cookies.</td>
+</tr>
+<tr>
+<td><code>FRAMES</code></td>
+<td><code>FRAMES(page, offset, count)</code></td>
+<td><code>HTMLDocument[]</code></td>
+<td>Returns a slice of page frames.</td>
+</tr>
+<tr>
+<td><code>SCREENSHOT</code></td>
+<td><code>SCREENSHOT(pageOrUrl, params?)</code></td>
+<td><code>Binary</code></td>
+<td>Captures a screenshot.</td>
+</tr>
+<tr>
+<td><code>PDF</code></td>
+<td><code>PDF(pageOrUrl, params?)</code></td>
+<td><code>Binary</code></td>
+<td>Prints the page to PDF.</td>
+</tr>
+<tr>
+<td><code>DOWNLOAD</code></td>
+<td><code>DOWNLOAD(url)</code></td>
+<td><code>Binary</code></td>
+<td>Downloads a resource by URL.</td>
+</tr>
+<tr>
+<td><code>PAGINATION</code></td>
+<td><code>PAGINATION(page, selector)</code></td>
+<td><code>Iterator&lt;Int&gt;</code></td>
+<td>Iterates through pages by clicking a next-page selector.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>DOCUMENT</code> uses the default registered driver unless the second argument selects a driver by string or by <code>{ driver: &#34;...&#34; }</code>.</li>
+<li>The memory driver is suitable for static documents and tests that do not require a live browser.</li>
+<li>The CDP driver requires a reachable Chrome DevTools endpoint before query execution starts.</li>
+<li>Browser-backed module functions operate on live page state. Use wait module functions or <code>WAITFOR</code> before reading or interacting with elements that are rendered asynchronously.</li>
+<li>HTML page, document, and element dot access is read-only. Use explicit module functions such as <code>ATTR_SET</code>, <code>STYLE_SET</code>, <code>INNER_TEXT_SET</code>, <code>INPUT</code>, and <code>CLICK</code> for effects.</li>
+<li>Unknown HTML dot properties return <code>None</code>.</li>
+<li><code>page.frames</code> includes the root document and child frames.</li>
+<li><code>DOCUMENT_EXISTS</code> is intended for availability checks; use <code>DOCUMENT</code> when you need the resulting page value.</li>
+<li>Cookie maps require at least <code>name</code> and <code>value</code>. Common optional fields are <code>path</code>, <code>domain</code>, <code>maxAge</code>, <code>expires</code>, <code>sameSite</code>, <code>httpOnly</code>, and <code>secure</code>.</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<p>This repository is a workspace of independently versioned modules. Keep <code>web/html</code> changes inside the owning module unless the task is explicitly about repo-wide tooling or CI.</p>
+<h3 id="package-orientation">Package Orientation</h3>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modules/web/html</code></td>
+<td>Module construction and registration options.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/lib</code></td>
+<td>Public FQL module function registration and argument adaptation.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers</code></td>
+<td>Shared driver contracts, runtime value types, selector types, cookies, headers, screenshots, PDFs, and capability adapters.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/memory</code></td>
+<td>Static HTTP loading and in-memory DOM implementation.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/cdp</code></td>
+<td>Browser-backed implementation using Chrome DevTools Protocol.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/cdp/dom</code></td>
+<td>CDP DOM documents, elements, frame loading, and DOM subscriptions.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/cdp/input</code></td>
+<td>Mouse, keyboard, focus, form input, select, and scroll interaction.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/cdp/network</code></td>
+<td>Network events, cookies, request/response observation, and navigation-related streams.</td>
+</tr>
+<tr>
+<td><code>modules/web/html/drivers/cdp/templates</code></td>
+<td>JavaScript snippets evaluated in the browser.</td>
+</tr>
+<tr>
+<td><code>tests/modules/web/html</code></td>
+<td>Ferret Lab integration fixtures for static and dynamic pages.</td>
+</tr>
+<tr>
+<td><code>tests/data/pages/static</code> and <code>tests/data/pages/dynamic</code></td>
+<td>Shared pages served by integration tests.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="development-workflow">Development Workflow</h3>
+<ol>
+<li>Identify whether the behavior belongs to <code>lib</code>, shared <code>drivers</code>, <code>drivers/memory</code>, or <code>drivers/cdp</code>.</li>
+<li>Inspect existing unit tests and Lab fixtures before adding new coverage.</li>
+<li>Keep driver-specific behavior in the owning driver package.</li>
+<li>Add focused unit tests for module-local logic changes.</li>
+<li>Add or update <code>tests/modules/web/html</code> fixtures for user-visible FQL behavior.</li>
+<li>Update this README when public module function behavior, options, driver contracts, or contribution workflow changes.</li>
+</ol>
+<p>Use the repo-level Makefile from the repository root.</p>
+<pre><code class="language-sh">make test-unit web/html
+make build web/html
+make test-integration web/html
+make lint web/html
+make fmt web/html
+</code></pre>
+<p><code>make test-unit web/html</code> is the narrow first validation for module code. <code>make build web/html</code> rebuilds the test runtime used by Lab integration tests. <code>make test-integration web/html</code> expects a CDP browser to be reachable at <code>http://127.0.0.1:9222/json/version</code>; if no browser is running, the command cannot validate browser-backed fixtures.</p>
+<p>For documentation-only changes, a Markdown review is enough. Do not claim Go tests or integration tests were run unless they were actually executed.</p>
+<h3 id="design-rules-for-contributors">Design Rules For Contributors</h3>
+<ul>
+<li>Do not move HTML behavior into the repository root or another module without a clear ownership reason.</li>
+<li>Do not assume Ferret core compiler, parser, VM, or runtime internals live in this repository.</li>
+<li>Prefer local module patterns over broad new abstractions.</li>
+<li>Preserve driver boundaries: static DOM behavior belongs in <code>drivers/memory</code>, browser behavior belongs in <code>drivers/cdp</code>, and shared contracts belong in <code>drivers</code>.</li>
+<li>Keep public FQL behavior documented here and covered by focused tests or fixtures.</li>
+<li>Avoid hidden cross-module dependencies.</li>
+</ul>

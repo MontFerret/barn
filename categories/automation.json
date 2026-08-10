@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "automation",
+    "name": "Automation"
+  },
+  "modules": [
+    {
+      "id": "montferret/html",
+      "href": "/modules/montferret/html/index.json"
+    }
+  ]
+}

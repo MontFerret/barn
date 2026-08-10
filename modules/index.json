@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "montferret/archive",
+      "href": "/modules/montferret/archive/index.json"
+    },
+    {
+      "id": "montferret/article",
+      "href": "/modules/montferret/article/index.json"
+    },
+    {
+      "id": "montferret/csv",
+      "href": "/modules/montferret/csv/index.json"
+    },
+    {
+      "id": "montferret/html",
+      "href": "/modules/montferret/html/index.json"
+    },
+    {
+      "id": "montferret/jwt",
+      "href": "/modules/montferret/jwt/index.json"
+    },
+    {
+      "id": "montferret/llm",
+      "href": "/modules/montferret/llm/index.json"
+    },
+    {
+      "id": "montferret/oauth2",
+      "href": "/modules/montferret/oauth2/index.json"
+    },
+    {
+      "id": "montferret/pdf",
+      "href": "/modules/montferret/pdf/index.json"
+    },
+    {
+      "id": "montferret/postgres",
+      "href": "/modules/montferret/postgres/index.json"
+    },
+    {
+      "id": "montferret/redis",
+      "href": "/modules/montferret/redis/index.json"
+    },
+    {
+      "id": "montferret/rest",
+      "href": "/modules/montferret/rest/index.json"
+    },
+    {
+      "id": "montferret/robots",
+      "href": "/modules/montferret/robots/index.json"
+    },
+    {
+      "id": "montferret/sitemap",
+      "href": "/modules/montferret/sitemap/index.json"
+    },
+    {
+      "id": "montferret/sqlite",
+      "href": "/modules/montferret/sqlite/index.json"
+    },
+    {
+      "id": "montferret/toml",
+      "href": "/modules/montferret/toml/index.json"
+    },
+    {
+      "id": "montferret/xlsx",
+      "href": "/modules/montferret/xlsx/index.json"
+    },
+    {
+      "id": "montferret/xml",
+      "href": "/modules/montferret/xml/index.json"
+    },
+    {
+      "id": "montferret/yaml",
+      "href": "/modules/montferret/yaml/index.json"
+    }
+  ]
+}

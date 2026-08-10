@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/robots",
+  "version": "1.0.0-rc.15",
+  "namespaces": [
+    {
+      "name": "WEB::ROBOTS",
+      "functions": [
+        {
+          "name": "ALLOWS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "robots",
+                  "type": "Object",
+                  "description": "Parsed robots.txt object."
+                },
+                {
+                  "name": "path",
+                  "type": "String",
+                  "description": "URL path to evaluate."
+                },
+                {
+                  "name": "userAgent",
+                  "type": "String?",
+                  "description": "Crawler product token, defaulting to *."
+                }
+              ],
+              "variadic": true,
+              "description": "Allows returns whether the path is allowed for the given user-agent.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the path is allowed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MATCH",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "robots",
+                  "type": "Object",
+                  "description": "Parsed robots.txt object."
+                },
+                {
+                  "name": "path",
+                  "type": "String",
+                  "description": "URL path to evaluate."
+                },
+                {
+                  "name": "userAgent",
+                  "type": "String?",
+                  "description": "Crawler product token, defaulting to *."
+                }
+              ],
+              "variadic": true,
+              "description": "Match returns effective rule-match details for the given path.",
+              "return": {
+                "type": "Object",
+                "description": "Effective rule-match details."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PARSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "text",
+                  "type": "String",
+                  "description": "Robots.txt content."
+                }
+              ],
+              "variadic": true,
+              "description": "Parse parses raw robots.txt content into a plain object.",
+              "return": {
+                "type": "Object",
+                "description": "Parsed groups, sitemaps, and host metadata."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SITEMAPS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "robots",
+                  "type": "Object",
+                  "description": "Parsed robots.txt object."
+                }
+              ],
+              "variadic": true,
+              "description": "Sitemaps returns the declared sitemap URLs from a parsed robots object.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Declared sitemap URLs."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

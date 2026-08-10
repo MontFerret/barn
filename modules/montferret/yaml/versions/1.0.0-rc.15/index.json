@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/yaml",
+  "version": "1.0.0-rc.15",
+  "description": "YAML decoding and encoding helpers under YAML for Ferret.",
+  "namespace": "YAML",
+  "ferret": "\u003e=2.0.0-alpha.43 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/yaml",
+    "commit": "6392e9a9fbda721c9176b8a16ff506ee92050995"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/yaml"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

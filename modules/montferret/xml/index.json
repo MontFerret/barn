@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/xml",
+  "owner": "montferret",
+  "name": "xml",
+  "description": "XML parsing, traversal, decoding, streaming, and encoding helpers under XML for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.15",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/xml/versions/1.0.0-rc.15/index.json"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "commit": "271963d5df892c3190eb58f7fbdba00063b1d34f"
+  },
+  "artifacts": {
+    "categories": "/categories.json",
+    "modules": "/modules/index.json",
+    "plugins": "/plugins/index.json"
+  }
+}

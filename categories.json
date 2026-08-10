@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "categories": [
+    {
+      "id": "ai",
+      "name": "Ai",
+      "count": 1,
+      "href": "/categories/ai.json"
+    },
+    {
+      "id": "archives",
+      "name": "Archives",
+      "count": 1,
+      "href": "/categories/archives.json"
+    },
+    {
+      "id": "authentication",
+      "name": "Authentication",
+      "count": 2,
+      "href": "/categories/authentication.json"
+    },
+    {
+      "id": "automation",
+      "name": "Automation",
+      "count": 1,
+      "href": "/categories/automation.json"
+    },
+    {
+      "id": "content-extraction",
+      "name": "Content Extraction",
+      "count": 1,
+      "href": "/categories/content-extraction.json"
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "count": 3,
+      "href": "/categories/data.json"
+    },
+    {
+      "id": "data-formats",
+      "name": "Data Formats",
+      "count": 4,
+      "href": "/categories/data-formats.json"
+    },
+    {
+      "id": "databases",
+      "name": "Databases",
+      "count": 3,
+      "href": "/categories/databases.json"
+    },
+    {
+      "id": "documents",
+      "name": "Documents",
+      "count": 2,
+      "href": "/categories/documents.json"
+    },
+    {
+      "id": "files",
+      "name": "Files",
+      "count": 3,
+      "href": "/categories/files.json"
+    },
+    {
+      "id": "networking",
+      "name": "Networking",
+      "count": 1,
+      "href": "/categories/networking.json"
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "count": 2,
+      "href": "/categories/security.json"
+    },
+    {
+      "id": "serialization",
+      "name": "Serialization",
+      "count": 4,
+      "href": "/categories/serialization.json"
+    },
+    {
+      "id": "text-processing",
+      "name": "Text Processing",
+      "count": 1,
+      "href": "/categories/text-processing.json"
+    },
+    {
+      "id": "web",
+      "name": "Web",
+      "count": 5,
+      "href": "/categories/web.json"
+    },
+    {
+      "id": "web-crawling",
+      "name": "Web Crawling",
+      "count": 2,
+      "href": "/categories/web-crawling.json"
+    }
+  ]
+}

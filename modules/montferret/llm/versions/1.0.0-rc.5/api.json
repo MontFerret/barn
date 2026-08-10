@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/llm",
+  "version": "1.0.0-rc.5",
+  "namespaces": [
+    {
+      "name": "AI::LLM",
+      "functions": [
+        {
+          "name": "CHAT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "Model|Session",
+                  "description": "Model or session to execute against."
+                },
+                {
+                  "name": "message",
+                  "type": "String",
+                  "description": "Final user message."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Messages, instructions, and execution options."
+                }
+              ],
+              "variadic": true,
+              "description": "Chat produces an assistant response to a user message.\n\nA successful session call commits the supplied messages and response to the\nsession history.",
+              "return": {
+                "type": "String",
+                "description": "Assistant response."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLASSIFY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "Model|Session",
+                  "description": "Model or session to execute against."
+                },
+                {
+                  "name": "text",
+                  "type": "String",
+                  "description": "Text to classify."
+                },
+                {
+                  "name": "labels",
+                  "type": "Array\u003cString\u003e",
+                  "description": "Allowed labels."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Classification and execution options."
+                }
+              ],
+              "variadic": true,
+              "description": "Classify selects one allowed label for the input text.",
+              "return": {
+                "type": "Object",
+                "description": "Object containing the selected label."
+              }
+            }
+          ]
+        },
+        {
+          "name": "EXTRACT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "Model|Session",
+                  "description": "Model or session to execute against."
+                },
+                {
+                  "name": "text",
+                  "type": "String",
+                  "description": "Source text."
+                },
+                {
+                  "name": "schema",
+                  "type": "Object",
+                  "description": "JSON Schema for the result."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Extraction and execution options."
+                }
+              ],
+              "variadic": true,
+              "description": "Extract produces structured data and validates it against a JSON Schema.",
+              "return": {
+                "type": "Any",
+                "description": "Validated structured value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "FORK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "session",
+                  "type": "Session",
+                  "description": "Session to copy."
+                }
+              ],
+              "description": "Fork creates an independent session with copied state and history.",
+              "return": {
+                "type": "Session",
+                "description": "Independent copied session."
+              }
+            }
+          ]
+        },
+        {
+          "name": "GENERATE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "Model|Session",
+                  "description": "Model or session to execute against."
+                },
+                {
+                  "name": "prompt",
+                  "type": "String",
+                  "description": "User prompt."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Generation and execution options."
+                }
+              ],
+              "variadic": true,
+              "description": "Generate produces text from a prompt.",
+              "return": {
+                "type": "String",
+                "description": "Generated text."
+              }
+            }
+          ]
+        },
+        {
+          "name": "HISTORY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "session",
+                  "type": "Session",
+                  "description": "Session whose history to read."
+                }
+              ],
+              "description": "History returns a copy of a session's visible messages.",
+              "return": {
+                "type": "Array\u003cObject\u003e",
+                "description": "Copied role and content messages."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MODEL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "provider",
+                  "type": "String",
+                  "description": "Provider identifier."
+                },
+                {
+                  "name": "options",
+                  "type": "Object",
+                  "description": "Model configuration."
+                }
+              ],
+              "description": "Model creates a provider-backed model or session.",
+              "return": {
+                "type": "Model|Session",
+                "description": "Configured model or session."
+              }
+            }
+          ]
+        },
+        {
+          "name": "RESET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "session",
+                  "type": "Session",
+                  "description": "Session to reset."
+                }
+              ],
+              "description": "Reset clears the visible history of a session.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the history is cleared."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SESSION",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "model",
+                  "type": "Model",
+                  "description": "Stateless model."
+                },
+                {
+                  "name": "options",
+                  "type": "Object",
+                  "description": "Session configuration."
+                }
+              ],
+              "description": "Session creates a local conversation session from a stateless model.",
+              "return": {
+                "type": "Session",
+                "description": "Local conversation session."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SUMMARIZE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "Model|Session",
+                  "description": "Model or session to execute against."
+                },
+                {
+                  "name": "text",
+                  "type": "String",
+                  "description": "Text to summarize."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Summarization and execution options."
+                }
+              ],
+              "variadic": true,
+              "description": "Summarize produces a summary of the input text.",
+              "return": {
+                "type": "String",
+                "description": "Generated summary."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

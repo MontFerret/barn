@@ -1,0 +1,129 @@
+<h1 id="webrobots-module">WEB::ROBOTS Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/web/robots</code> registers robots.txt parsing and policy helpers under the <code>WEB::ROBOTS</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>WEB::ROBOTS::PARSE</code></li>
+<li><code>WEB::ROBOTS::ALLOWS</code></li>
+<li><code>WEB::ROBOTS::MATCH</code></li>
+<li><code>WEB::ROBOTS::SITEMAPS</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/web/robots
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	robotsmodule &#34;github.com/MontFerret/contrib/modules/web/robots&#34;
+)
+
+func main() {
+	robotsMod, err := robotsmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(robotsMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WEB::ROBOTS::PARSE</code></td>
+<td><code>WEB::ROBOTS::PARSE(text)</code></td>
+<td><code>Object</code></td>
+<td>Parses raw robots.txt text into a plain Ferret object.</td>
+</tr>
+<tr>
+<td><code>WEB::ROBOTS::ALLOWS</code></td>
+<td><code>WEB::ROBOTS::ALLOWS(robots, path, userAgent?)</code></td>
+<td><code>Boolean</code></td>
+<td>Returns whether the path is allowed for the effective user-agent group.</td>
+</tr>
+<tr>
+<td><code>WEB::ROBOTS::MATCH</code></td>
+<td><code>WEB::ROBOTS::MATCH(robots, path, userAgent?)</code></td>
+<td><code>Object</code></td>
+<td>Returns rule-match details for debugging and inspection.</td>
+</tr>
+<tr>
+<td><code>WEB::ROBOTS::SITEMAPS</code></td>
+<td><code>WEB::ROBOTS::SITEMAPS(robots)</code></td>
+<td><code>String[]</code></td>
+<td>Returns top-level sitemap declarations from the robots document.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="return-shapes">Return Shapes</h2>
+<p><code>WEB::ROBOTS::PARSE</code> returns an object in this shape:</p>
+<pre><code class="language-json">{
+  &#34;groups&#34;: [
+    {
+      &#34;userAgents&#34;: [&#34;*&#34;],
+      &#34;allow&#34;: [&#34;/public&#34;],
+      &#34;disallow&#34;: [&#34;/admin&#34;],
+      &#34;crawlDelay&#34;: 5
+    }
+  ],
+  &#34;sitemaps&#34;: [
+    &#34;https://example.com/sitemap.xml&#34;
+  ],
+  &#34;host&#34;: null
+}
+</code></pre>
+<p><code>WEB::ROBOTS::MATCH</code> returns an object in this shape:</p>
+<pre><code class="language-json">{
+  &#34;allowed&#34;: true,
+  &#34;directive&#34;: &#34;allow&#34;,
+  &#34;pattern&#34;: &#34;/products/&#34;,
+  &#34;userAgent&#34;: &#34;FerretBot&#34;
+}
+</code></pre>
+<p><code>userAgent</code> reports the normalized debug token used for evaluation. Exact matches, no-match default allows, and implicit <code>/robots.txt</code> allows return the normalized requested token. When evaluation falls back to wildcard groups, it is returned as <code>&#34;*&#34;</code>. The field does not preserve the original <code>User-agent:</code> casing from the robots file. When access is allowed by default with no matching rule, <code>directive</code> and <code>pattern</code> are returned as <code>null</code>.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="parse-a-robotstxt-document">Parse A robots.txt Document</h3>
+<pre><code class="language-fql">LET robots = WEB::ROBOTS::PARSE($text)
+RETURN robots.sitemaps
+</code></pre>
+<h3 id="check-path-access">Check Path Access</h3>
+<pre><code class="language-fql">LET robots = WEB::ROBOTS::PARSE($text)
+RETURN WEB::ROBOTS::ALLOWS(robots, &#34;/admin/users&#34;, &#34;FerretBot&#34;)
+</code></pre>
+<h3 id="inspect-the-matching-rule">Inspect The Matching Rule</h3>
+<pre><code class="language-fql">LET robots = WEB::ROBOTS::PARSE($text)
+RETURN WEB::ROBOTS::MATCH(robots, &#34;/catalog/item/1&#34;, &#34;FerretBot&#34;)
+</code></pre>
+<h3 id="return-declared-sitemap-urls">Return Declared Sitemap URLs</h3>
+<pre><code class="language-fql">LET robots = WEB::ROBOTS::PARSE($text)
+FOR sitemap IN WEB::ROBOTS::SITEMAPS(robots)
+  RETURN sitemap
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li>User-agent matching is case-insensitive and exact against the supplied crawler product token.</li>
+<li>If no exact user-agent group matches, <code>*</code> groups are used when present.</li>
+<li>Matching supports <code>*</code> wildcards and trailing <code>$</code> end anchors.</li>
+<li>The most specific rule wins; when equal <code>Allow</code> and <code>Disallow</code> rules both match, <code>Allow</code> wins.</li>
+<li>If no rule matches, the path is allowed.</li>
+<li><code>/robots.txt</code> is always allowed.</li>
+<li><code>PARSE</code> preserves group order and per-directive rule order.</li>
+<li><code>host</code> is exposed for transparency only and does not affect matching.</li>
+</ul>

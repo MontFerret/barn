@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/sqlite",
+  "version": "1.0.0-rc.13",
+  "namespaces": [
+    {
+      "name": "DB::SQLITE",
+      "functions": [
+        {
+          "name": "BEGIN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "database",
+                  "type": "SQLiteDatabase",
+                  "description": "Database handle."
+                }
+              ],
+              "description": "Begin starts a SQLite transaction and returns a transaction handle.",
+              "return": {
+                "type": "SQLiteTransaction",
+                "description": "Open transaction handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLOSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "database",
+                  "type": "SQLiteDatabase",
+                  "description": "Database handle to close."
+                }
+              ],
+              "description": "Close closes a SQLite database handle. Closing an already closed database is\nidempotent.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the handle is closed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COMMIT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "transaction",
+                  "type": "SQLiteTransaction",
+                  "description": "Transaction to commit."
+                }
+              ],
+              "description": "Commit commits a SQLite transaction handle.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the transaction is committed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "arg"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ROLLBACK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "transaction",
+                  "type": "SQLiteTransaction",
+                  "description": "Transaction to roll back."
+                }
+              ],
+              "description": "Rollback rolls back a SQLite transaction handle.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the transaction is rolled back."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

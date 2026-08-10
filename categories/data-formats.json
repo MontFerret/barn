@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "data-formats",
+    "name": "Data Formats"
+  },
+  "modules": [
+    {
+      "id": "montferret/csv",
+      "href": "/modules/montferret/csv/index.json"
+    },
+    {
+      "id": "montferret/toml",
+      "href": "/modules/montferret/toml/index.json"
+    },
+    {
+      "id": "montferret/xml",
+      "href": "/modules/montferret/xml/index.json"
+    },
+    {
+      "id": "montferret/yaml",
+      "href": "/modules/montferret/yaml/index.json"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "archives",
+    "name": "Archives"
+  },
+  "modules": [
+    {
+      "id": "montferret/archive",
+      "href": "/modules/montferret/archive/index.json"
+    }
+  ]
+}

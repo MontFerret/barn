@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/sqlite",
+  "owner": "montferret",
+  "name": "sqlite",
+  "description": "SQLite database handles under DB::SQLITE for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.13",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/sqlite/versions/1.0.0-rc.13/index.json"
+    }
+  ]
+}

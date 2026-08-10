@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/xlsx",
+  "version": "1.0.0-rc.9",
+  "description": "Excel-compatible XLSX workbook handles under DOCUMENT::XLSX for Ferret.",
+  "namespace": "DOCUMENT::XLSX",
+  "ferret": "\u003e=2.0.0-alpha.43 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/document/xlsx",
+    "commit": "6392e9a9fbda721c9176b8a16ff506ee92050995"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/document/xlsx"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

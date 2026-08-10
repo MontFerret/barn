@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "documents",
+    "name": "Documents"
+  },
+  "modules": [
+    {
+      "id": "montferret/pdf",
+      "href": "/modules/montferret/pdf/index.json"
+    },
+    {
+      "id": "montferret/xlsx",
+      "href": "/modules/montferret/xlsx/index.json"
+    }
+  ]
+}

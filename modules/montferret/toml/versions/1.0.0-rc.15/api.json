@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/toml",
+  "version": "1.0.0-rc.15",
+  "namespaces": [
+    {
+      "name": "TOML",
+      "functions": [
+        {
+          "name": "DECODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "data",
+                  "type": "String|Binary",
+                  "description": "TOML content."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Decoding options."
+                }
+              ],
+              "variadic": true,
+              "description": "Decode decodes a TOML document into an object.",
+              "return": {
+                "type": "Object",
+                "description": "Decoded TOML object."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ENCODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Object",
+                  "description": "Object to encode."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Encoding options."
+                }
+              ],
+              "variadic": true,
+              "description": "Encode serializes an object into TOML text.",
+              "return": {
+                "type": "String",
+                "description": "TOML text."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

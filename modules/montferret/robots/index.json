@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/robots",
+  "owner": "montferret",
+  "name": "robots",
+  "description": "Robots.txt parsing and policy helpers under WEB::ROBOTS for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.15",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/robots/versions/1.0.0-rc.15/index.json"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "security",
+    "name": "Security"
+  },
+  "modules": [
+    {
+      "id": "montferret/jwt",
+      "href": "/modules/montferret/jwt/index.json"
+    },
+    {
+      "id": "montferret/oauth2",
+      "href": "/modules/montferret/oauth2/index.json"
+    }
+  ]
+}

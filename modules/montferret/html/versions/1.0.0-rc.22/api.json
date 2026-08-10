@@ -1,0 +1,3921 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/html",
+  "version": "1.0.0-rc.22",
+  "namespaces": [
+    {
+      "name": "",
+      "functions": [
+        {
+          "name": "ATTR_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeGet returns selected attributes from an HTML root.",
+              "return": {
+                "type": "Object",
+                "description": "Existing attribute values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_QUERY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeQuery returns selected attributes from the first matching element.",
+              "return": {
+                "type": "Object",
+                "description": "Existing attribute values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_REMOVE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names to remove."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeRemove removes attributes from an HTML root.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "nameOrAttributes",
+                  "type": "String|Object",
+                  "description": "Attribute name or attribute map."
+                },
+                {
+                  "name": "value",
+                  "type": "String|Object?",
+                  "description": "Attribute value when a name is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeSet sets one or more attributes on an HTML root.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "BASE_URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                }
+              ],
+              "description": "BaseURL returns the effective base URL of a page or document.",
+              "return": {
+                "type": "String",
+                "description": "Effective document base URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "BLUR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Blur removes focus from an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was blurred."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLICK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrCount",
+                  "type": "String|Int?",
+                  "description": "Element selector or click count."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Click count for a selected element."
+                }
+              ],
+              "variadic": true,
+              "description": "Click clicks an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and clicked."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLICK_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Clicks per element."
+                }
+              ],
+              "variadic": true,
+              "description": "ClickAll clicks every element matching a selector.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether at least one element was found and clicked."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_DEL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "cookiesOrNames",
+                  "type": "Any...",
+                  "description": "Cookie values or cookie names to delete."
+                }
+              ],
+              "variadic": true,
+              "description": "CookieDel deletes cookies from a page.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Cookie name."
+                }
+              ],
+              "description": "CookieGet returns a named page cookie when present.",
+              "return": {
+                "type": "HTTPCookie|None",
+                "description": "Cookie value or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "cookies",
+                  "type": "Any...",
+                  "description": "Cookie values to set."
+                }
+              ],
+              "variadic": true,
+              "description": "CookieSet sets cookies on a page.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DOCUMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to load."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Driver and page-loading options."
+                }
+              ],
+              "variadic": true,
+              "description": "Open loads an HTML page from a URL.\n\nOptions may select a driver, timeout, user agent, cookie reuse, cookies,\nheaders, ignored resources or status codes, viewport, source charset, and an\ninitScript.\nFor CDP, beforeDocument uses the browser's new-document\nmechanism; same-target frames inherit it subject to browser target limits.\nafterNavigation runs after Ferret's controlled navigation reaches main-frame\nreadiness.",
+              "return": {
+                "type": "HTMLPage",
+                "description": "Loaded page."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DOCUMENT_EXISTS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to check."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Request options, including headers."
+                }
+              ],
+              "variadic": true,
+              "description": "PageExists reports whether a URL returns a successful HTTP response.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the URL returned a successful response."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DOWNLOAD",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "Resource URL."
+                }
+              ],
+              "description": "Download downloads a resource from a URL.",
+              "return": {
+                "type": "Binary",
+                "description": "Downloaded bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "Element returns the first element matching a selector.",
+              "return": {
+                "type": "HTMLElement|None",
+                "description": "Matching element or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENTS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "Elements returns all elements matching a selector.",
+              "return": {
+                "type": "Array\u003cHTMLElement\u003e",
+                "description": "Matching elements."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENTS_COUNT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "ElementsCount returns the number of elements matching a selector.",
+              "return": {
+                "type": "Int",
+                "description": "Number of matching elements."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENT_EXISTS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "ElementExists reports whether an element matches a selector.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether a matching element exists."
+              }
+            }
+          ]
+        },
+        {
+          "name": "FOCUS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Focus focuses an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was focused."
+              }
+            }
+          ]
+        },
+        {
+          "name": "FRAMES",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Page whose frames to search."
+                },
+                {
+                  "name": "property",
+                  "type": "String",
+                  "description": "Frame property name."
+                },
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "Regular expression for the property value."
+                }
+              ],
+              "description": "Frames returns page frames whose property matches a regular expression.",
+              "return": {
+                "type": "Array\u003cHTMLDocument\u003e",
+                "description": "Matching frame documents."
+              }
+            }
+          ]
+        },
+        {
+          "name": "HOVER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Hover moves the mouse over an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was hovered."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "GetInnerHTML returns HTML from a root or selected element.",
+              "return": {
+                "type": "String",
+                "description": "Inner HTML, or an empty string when no element matches."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "GetInnerHTMLAll returns HTML from every matching element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Inner HTML values in match order."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "htmlOrSelector",
+                  "type": "String",
+                  "description": "HTML content or element selector."
+                },
+                {
+                  "name": "html",
+                  "type": "String?",
+                  "description": "HTML content when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "SetInnerHTML sets HTML on a root or selected element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "GetInnerText returns text from a root or selected element.",
+              "return": {
+                "type": "String",
+                "description": "Inner text, or an empty string when no element matches."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "GetInnerTextAll returns text from every matching element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Inner text values in match order."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "textOrSelector",
+                  "type": "String",
+                  "description": "Text content or element selector."
+                },
+                {
+                  "name": "text",
+                  "type": "String?",
+                  "description": "Text content when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "SetInnerText sets text on a root or selected element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INPUT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "valueOrSelector",
+                  "type": "Any",
+                  "description": "Input value or element selector."
+                },
+                {
+                  "name": "valueOrDelay",
+                  "type": "Any?",
+                  "description": "Input value or keyboard delay."
+                },
+                {
+                  "name": "delay",
+                  "type": "Int?",
+                  "description": "Keyboard delay in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "Input types a value into an HTML root or selected input element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and received input."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INPUT_CLEAR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "InputClear clears an HTML root or selected input element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and cleared."
+              }
+            }
+          ]
+        },
+        {
+          "name": "IS_HTML_DOCUMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Value to inspect."
+                }
+              ],
+              "description": "IsHTMLDocument reports whether a value is an HTML document.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the value is an HTMLDocument."
+              }
+            }
+          ]
+        },
+        {
+          "name": "IS_HTML_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Value to inspect."
+                }
+              ],
+              "description": "IsHTMLElement reports whether a value is an HTML element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the value is an HTMLElement."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MOUSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "x",
+                  "type": "Number",
+                  "description": "Horizontal coordinate."
+                },
+                {
+                  "name": "y",
+                  "type": "Number",
+                  "description": "Vertical coordinate."
+                }
+              ],
+              "description": "MouseMoveXY moves the mouse to absolute viewport coordinates.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the mouse position changed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "Destination URL."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "Navigate loads a URL in a page and waits for navigation to finish.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when navigation succeeds."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE_BACK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "skip",
+                  "type": "Int?",
+                  "description": "Number of history entries to skip."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "NavigateBack moves backward through page history.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether history existed and navigation succeeded."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE_FORWARD",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "skip",
+                  "type": "Int?",
+                  "description": "Number of history entries to skip."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "NavigateForward moves forward through page history.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether history existed and navigation succeeded."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PAGINATION",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Page to paginate."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Next-page selector."
+                }
+              ],
+              "description": "Pagination returns an iterator that advances by clicking a selector.\n\nThe first iteration yields the current page without clicking.",
+              "return": {
+                "type": "Iterator\u003cInt\u003e",
+                "description": "Iterator over zero-based page positions."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PARSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "html",
+                  "type": "String|Binary",
+                  "description": "HTML content."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Driver and parsing options."
+                }
+              ],
+              "variadic": true,
+              "description": "Parse loads an HTML page from string or binary content.\n\nOptions may select a driver, cookie reuse, cookies, headers, and viewport.",
+              "return": {
+                "type": "HTMLPage",
+                "description": "Parsed page."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PDF",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "HTMLPage|String",
+                  "description": "Page or URL to render."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "PDF layout and rendering options."
+                }
+              ],
+              "variadic": true,
+              "description": "PDF renders a page or URL as a PDF document.\n\nOptions control orientation, headers and footers, background graphics, scale,\npaper size, margins, page ranges, templates, and CSS page-size preference.",
+              "return": {
+                "type": "Binary",
+                "description": "Rendered PDF bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PRESS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "keys",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Keyboard key or keys."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Number of presses."
+                }
+              ],
+              "variadic": true,
+              "description": "Press sends keyboard input to an HTML root.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the keys are sent."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PRESS_SELECTOR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "keys",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Keyboard key or keys."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Number of presses."
+                }
+              ],
+              "variadic": true,
+              "description": "PressSelector sends keyboard input to a selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the keys are sent."
+              }
+            }
+          ]
+        },
+        {
+          "name": "RESOLVE_URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to resolve."
+                }
+              ],
+              "description": "ResolveURL resolves a URL against a page or document's effective base URL.",
+              "return": {
+                "type": "String",
+                "description": "Resolved URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCREENSHOT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "HTMLPage|String",
+                  "description": "Page or URL to capture."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Capture bounds, format, and quality options."
+                }
+              ],
+              "variadic": true,
+              "description": "Screenshot captures a screenshot of a page or URL.\n\nThe format is JPEG or PNG; quality applies only to JPEG.",
+              "return": {
+                "type": "Binary",
+                "description": "Screenshot bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "x",
+                  "type": "Number",
+                  "description": "Horizontal coordinate."
+                },
+                {
+                  "name": "y",
+                  "type": "Number",
+                  "description": "Vertical coordinate."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollXY scrolls a page or document to absolute coordinates.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_BOTTOM",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollBottom scrolls a page or document to the bottom.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrOptions",
+                  "type": "String|Object?",
+                  "description": "Element selector or scroll options."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollInto scrolls an HTML root or selected element into view.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_TOP",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollTop scrolls a page or document to the top.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SELECT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "valuesOrSelector",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Values or element selector."
+                },
+                {
+                  "name": "values",
+                  "type": "String|Array\u003cString\u003e?",
+                  "description": "Values when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "Select selects values in a select element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Selected values."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Style names."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleGet returns selected style values from an element.",
+              "return": {
+                "type": "Object",
+                "description": "Existing style values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_REMOVE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Style names to remove."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleRemove removes style values from an element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "nameOrStyles",
+                  "type": "String|Object",
+                  "description": "Style name or style map."
+                },
+                {
+                  "name": "value",
+                  "type": "Any?",
+                  "description": "Style value when a name is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleSet sets one or more style values on an element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "UNHOVER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Unhover moves the mouse outside an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the mouse was moved away."
+              }
+            }
+          ]
+        },
+        {
+          "name": "URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                }
+              ],
+              "description": "URL returns the current URL of a page or document.",
+              "return": {
+                "type": "String",
+                "description": "Current document URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ATTR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or attribute name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Attribute name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitAttribute waits for an attribute value to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ATTR_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Attribute name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitAttributeAll waits for an attribute value on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_CLASS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrClass",
+                  "type": "String",
+                  "description": "Element selector or class name."
+                },
+                {
+                  "name": "classOrTimeout",
+                  "type": "String|Int?",
+                  "description": "Class name or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitClass waits for a class to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class appears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_CLASS_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "class",
+                  "type": "String",
+                  "description": "Class name."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitClassAll waits for a class on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class appears on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitElement waits for an element to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the element appears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NAVIGATION",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "paramsOrTimeout",
+                  "type": "Int|Object?",
+                  "description": "Timeout or navigation options."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNavigation waits for page or frame navigation.\n\nNavigation options may specify timeout, target URL, and frame.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when navigation completes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ATTR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or attribute name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Attribute name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoAttribute waits for an attribute value to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ATTR_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Attribute name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoAttributeAll waits for an attribute value to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_CLASS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrClass",
+                  "type": "String",
+                  "description": "Element selector or class name."
+                },
+                {
+                  "name": "classOrTimeout",
+                  "type": "String|Int?",
+                  "description": "Class name or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoClass waits for a class to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class disappears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_CLASS_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "class",
+                  "type": "String",
+                  "description": "Class name."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoClassAll waits for a class to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class disappears from every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoElement waits for an element to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the element disappears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_STYLE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or style name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Style name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoStyle waits for a style value to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_STYLE_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Style name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoStyleAll waits for a style value to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_STYLE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or style name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Style name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitStyle waits for a style value to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_STYLE_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Style name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitStyleAll waits for a style value on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "X",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "XPath expression."
+                }
+              ],
+              "description": "XPathSelector creates a reusable XPath query selector.",
+              "return": {
+                "type": "QuerySelector",
+                "description": "XPath query selector."
+              }
+            }
+          ]
+        },
+        {
+          "name": "XPATH",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "XPath expression."
+                }
+              ],
+              "description": "XPath evaluates an XPath expression against an HTML root.",
+              "return": {
+                "type": "Any",
+                "description": "XPath evaluation result."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WEB::HTML",
+      "functions": [
+        {
+          "name": "ATTR_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeGet returns selected attributes from an HTML root.",
+              "return": {
+                "type": "Object",
+                "description": "Existing attribute values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_QUERY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeQuery returns selected attributes from the first matching element.",
+              "return": {
+                "type": "Object",
+                "description": "Existing attribute values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_REMOVE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Attribute names to remove."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeRemove removes attributes from an HTML root.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ATTR_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "nameOrAttributes",
+                  "type": "String|Object",
+                  "description": "Attribute name or attribute map."
+                },
+                {
+                  "name": "value",
+                  "type": "String|Object?",
+                  "description": "Attribute value when a name is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "AttributeSet sets one or more attributes on an HTML root.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "BASE_URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                }
+              ],
+              "description": "BaseURL returns the effective base URL of a page or document.",
+              "return": {
+                "type": "String",
+                "description": "Effective document base URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "BLUR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Blur removes focus from an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was blurred."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CAN_OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to check."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Request options, including headers."
+                }
+              ],
+              "variadic": true,
+              "description": "PageExists reports whether a URL returns a successful HTTP response.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the URL returned a successful response."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLICK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrCount",
+                  "type": "String|Int?",
+                  "description": "Element selector or click count."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Click count for a selected element."
+                }
+              ],
+              "variadic": true,
+              "description": "Click clicks an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and clicked."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLICK_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Clicks per element."
+                }
+              ],
+              "variadic": true,
+              "description": "ClickAll clicks every element matching a selector.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether at least one element was found and clicked."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_DEL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "cookiesOrNames",
+                  "type": "Any...",
+                  "description": "Cookie values or cookie names to delete."
+                }
+              ],
+              "variadic": true,
+              "description": "CookieDel deletes cookies from a page.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Cookie name."
+                }
+              ],
+              "description": "CookieGet returns a named page cookie when present.",
+              "return": {
+                "type": "HTTPCookie|None",
+                "description": "Cookie value or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COOKIE_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "cookies",
+                  "type": "Any...",
+                  "description": "Cookie values to set."
+                }
+              ],
+              "variadic": true,
+              "description": "CookieSet sets cookies on a page.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DOWNLOAD",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "Resource URL."
+                }
+              ],
+              "description": "Download downloads a resource from a URL.",
+              "return": {
+                "type": "Binary",
+                "description": "Downloaded bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "Element returns the first element matching a selector.",
+              "return": {
+                "type": "HTMLElement|None",
+                "description": "Matching element or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENTS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "Elements returns all elements matching a selector.",
+              "return": {
+                "type": "Array\u003cHTMLElement\u003e",
+                "description": "Matching elements."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENTS_COUNT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "ElementsCount returns the number of elements matching a selector.",
+              "return": {
+                "type": "Int",
+                "description": "Number of matching elements."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ELEMENT_EXISTS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "ElementExists reports whether an element matches a selector.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether a matching element exists."
+              }
+            }
+          ]
+        },
+        {
+          "name": "FOCUS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Focus focuses an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was focused."
+              }
+            }
+          ]
+        },
+        {
+          "name": "FRAMES",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Page whose frames to search."
+                },
+                {
+                  "name": "property",
+                  "type": "String",
+                  "description": "Frame property name."
+                },
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "Regular expression for the property value."
+                }
+              ],
+              "description": "Frames returns page frames whose property matches a regular expression.",
+              "return": {
+                "type": "Array\u003cHTMLDocument\u003e",
+                "description": "Matching frame documents."
+              }
+            }
+          ]
+        },
+        {
+          "name": "HOVER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Hover moves the mouse over an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was hovered."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "GetInnerHTML returns HTML from a root or selected element.",
+              "return": {
+                "type": "String",
+                "description": "Inner HTML, or an empty string when no element matches."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "GetInnerHTMLAll returns HTML from every matching element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Inner HTML values in match order."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_HTML_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "htmlOrSelector",
+                  "type": "String",
+                  "description": "HTML content or element selector."
+                },
+                {
+                  "name": "html",
+                  "type": "String?",
+                  "description": "HTML content when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "SetInnerHTML sets HTML on a root or selected element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "GetInnerText returns text from a root or selected element.",
+              "return": {
+                "type": "String",
+                "description": "Inner text, or an empty string when no element matches."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                }
+              ],
+              "description": "GetInnerTextAll returns text from every matching element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Inner text values in match order."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INNER_TEXT_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "textOrSelector",
+                  "type": "String",
+                  "description": "Text content or element selector."
+                },
+                {
+                  "name": "text",
+                  "type": "String?",
+                  "description": "Text content when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "SetInnerText sets text on a root or selected element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INPUT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "valueOrSelector",
+                  "type": "Any",
+                  "description": "Input value or element selector."
+                },
+                {
+                  "name": "valueOrDelay",
+                  "type": "Any?",
+                  "description": "Input value or keyboard delay."
+                },
+                {
+                  "name": "delay",
+                  "type": "Int?",
+                  "description": "Keyboard delay in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "Input types a value into an HTML root or selected input element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and received input."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INPUT_CLEAR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "InputClear clears an HTML root or selected input element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the target was found and cleared."
+              }
+            }
+          ]
+        },
+        {
+          "name": "IS_HTML_DOCUMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Value to inspect."
+                }
+              ],
+              "description": "IsHTMLDocument reports whether a value is an HTML document.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the value is an HTMLDocument."
+              }
+            }
+          ]
+        },
+        {
+          "name": "IS_HTML_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Value to inspect."
+                }
+              ],
+              "description": "IsHTMLElement reports whether a value is an HTML element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the value is an HTMLElement."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MOUSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "x",
+                  "type": "Number",
+                  "description": "Horizontal coordinate."
+                },
+                {
+                  "name": "y",
+                  "type": "Number",
+                  "description": "Vertical coordinate."
+                }
+              ],
+              "description": "MouseMoveXY moves the mouse to absolute viewport coordinates.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the mouse position changed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "Destination URL."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "Navigate loads a URL in a page and waits for navigation to finish.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when navigation succeeds."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE_BACK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "skip",
+                  "type": "Int?",
+                  "description": "Number of history entries to skip."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "NavigateBack moves backward through page history.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether history existed and navigation succeeded."
+              }
+            }
+          ]
+        },
+        {
+          "name": "NAVIGATE_FORWARD",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "skip",
+                  "type": "Int?",
+                  "description": "Number of history entries to skip."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Navigation timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "NavigateForward moves forward through page history.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether history existed and navigation succeeded."
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to load."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Driver and page-loading options."
+                }
+              ],
+              "variadic": true,
+              "description": "Open loads an HTML page from a URL.\n\nOptions may select a driver, timeout, user agent, cookie reuse, cookies,\nheaders, ignored resources or status codes, viewport, source charset, and an\ninitScript.\nFor CDP, beforeDocument uses the browser's new-document\nmechanism; same-target frames inherit it subject to browser target limits.\nafterNavigation runs after Ferret's controlled navigation reaches main-frame\nreadiness.",
+              "return": {
+                "type": "HTMLPage",
+                "description": "Loaded page."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PAGINATION",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Page to paginate."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Next-page selector."
+                }
+              ],
+              "description": "Pagination returns an iterator that advances by clicking a selector.\n\nThe first iteration yields the current page without clicking.",
+              "return": {
+                "type": "Iterator\u003cInt\u003e",
+                "description": "Iterator over zero-based page positions."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PARSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "html",
+                  "type": "String|Binary",
+                  "description": "HTML content."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Driver and parsing options."
+                }
+              ],
+              "variadic": true,
+              "description": "Parse loads an HTML page from string or binary content.\n\nOptions may select a driver, cookie reuse, cookies, headers, and viewport.",
+              "return": {
+                "type": "HTMLPage",
+                "description": "Parsed page."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PDF",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "HTMLPage|String",
+                  "description": "Page or URL to render."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "PDF layout and rendering options."
+                }
+              ],
+              "variadic": true,
+              "description": "PDF renders a page or URL as a PDF document.\n\nOptions control orientation, headers and footers, background graphics, scale,\npaper size, margins, page ranges, templates, and CSS page-size preference.",
+              "return": {
+                "type": "Binary",
+                "description": "Rendered PDF bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PRESS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "keys",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Keyboard key or keys."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Number of presses."
+                }
+              ],
+              "variadic": true,
+              "description": "Press sends keyboard input to an HTML root.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the keys are sent."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PRESS_SELECTOR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "keys",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Keyboard key or keys."
+                },
+                {
+                  "name": "count",
+                  "type": "Int?",
+                  "description": "Number of presses."
+                }
+              ],
+              "variadic": true,
+              "description": "PressSelector sends keyboard input to a selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the keys are sent."
+              }
+            }
+          ]
+        },
+        {
+          "name": "RESOLVE_URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "url",
+                  "type": "String",
+                  "description": "URL to resolve."
+                }
+              ],
+              "description": "ResolveURL resolves a URL against a page or document's effective base URL.",
+              "return": {
+                "type": "String",
+                "description": "Resolved URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCREENSHOT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "target",
+                  "type": "HTMLPage|String",
+                  "description": "Page or URL to capture."
+                },
+                {
+                  "name": "params",
+                  "type": "Object?",
+                  "description": "Capture bounds, format, and quality options."
+                }
+              ],
+              "variadic": true,
+              "description": "Screenshot captures a screenshot of a page or URL.\n\nThe format is JPEG or PNG; quality applies only to JPEG.",
+              "return": {
+                "type": "Binary",
+                "description": "Screenshot bytes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "x",
+                  "type": "Number",
+                  "description": "Horizontal coordinate."
+                },
+                {
+                  "name": "y",
+                  "type": "Number",
+                  "description": "Vertical coordinate."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollXY scrolls a page or document to absolute coordinates.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_BOTTOM",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollBottom scrolls a page or document to the bottom.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrOptions",
+                  "type": "String|Object?",
+                  "description": "Element selector or scroll options."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollInto scrolls an HTML root or selected element into view.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCROLL_TOP",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                },
+                {
+                  "name": "options",
+                  "type": "Object?",
+                  "description": "Scroll behavior and alignment options."
+                }
+              ],
+              "variadic": true,
+              "description": "ScrollTop scrolls a page or document to the top.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether scrolling was initiated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SELECT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "valuesOrSelector",
+                  "type": "String|Array\u003cString\u003e",
+                  "description": "Values or element selector."
+                },
+                {
+                  "name": "values",
+                  "type": "String|Array\u003cString\u003e?",
+                  "description": "Values when a selector is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "Select selects values in a select element.",
+              "return": {
+                "type": "Array\u003cString\u003e",
+                "description": "Selected values."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_GET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Style names."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleGet returns selected style values from an element.",
+              "return": {
+                "type": "Object",
+                "description": "Existing style values keyed by name."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_REMOVE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "names",
+                  "type": "String...",
+                  "description": "Style names to remove."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleRemove removes style values from an element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "STYLE_SET",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "element",
+                  "type": "HTMLElement",
+                  "description": "Target element."
+                },
+                {
+                  "name": "nameOrStyles",
+                  "type": "String|Object",
+                  "description": "Style name or style map."
+                },
+                {
+                  "name": "value",
+                  "type": "Any?",
+                  "description": "Style value when a name is supplied."
+                }
+              ],
+              "variadic": true,
+              "description": "StyleSet sets one or more style values on an element.",
+              "return": {
+                "type": "None",
+                "description": "No value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "UNHOVER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String?",
+                  "description": "Element selector."
+                }
+              ],
+              "variadic": true,
+              "description": "Unhover moves the mouse outside an HTML root or selected element.",
+              "return": {
+                "type": "Boolean",
+                "description": "Whether the mouse was moved away."
+              }
+            }
+          ]
+        },
+        {
+          "name": "URL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument",
+                  "description": "Page or document."
+                }
+              ],
+              "description": "URL returns the current URL of a page or document.",
+              "return": {
+                "type": "String",
+                "description": "Current document URL."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ATTR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or attribute name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Attribute name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitAttribute waits for an attribute value to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ATTR_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Attribute name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitAttributeAll waits for an attribute value on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_CLASS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrClass",
+                  "type": "String",
+                  "description": "Element selector or class name."
+                },
+                {
+                  "name": "classOrTimeout",
+                  "type": "String|Int?",
+                  "description": "Class name or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitClass waits for a class to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class appears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_CLASS_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "class",
+                  "type": "String",
+                  "description": "Class name."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitClassAll waits for a class on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class appears on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitElement waits for an element to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the element appears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NAVIGATION",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "page",
+                  "type": "HTMLPage",
+                  "description": "Target page."
+                },
+                {
+                  "name": "paramsOrTimeout",
+                  "type": "Int|Object?",
+                  "description": "Timeout or navigation options."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNavigation waits for page or frame navigation.\n\nNavigation options may specify timeout, target URL, and frame.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when navigation completes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ATTR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or attribute name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Attribute name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoAttribute waits for an attribute value to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ATTR_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Attribute name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoAttributeAll waits for an attribute value to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_CLASS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrClass",
+                  "type": "String",
+                  "description": "Element selector or class name."
+                },
+                {
+                  "name": "classOrTimeout",
+                  "type": "String|Int?",
+                  "description": "Class name or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoClass waits for a class to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class disappears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_CLASS_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "class",
+                  "type": "String",
+                  "description": "Class name."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoClassAll waits for a class to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the class disappears from every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_ELEMENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoElement waits for an element to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the element disappears."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_STYLE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or style name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Style name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoStyle waits for a style value to disappear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_NO_STYLE_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Style name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitNoStyleAll waits for a style value to disappear from all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_STYLE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selectorOrName",
+                  "type": "String",
+                  "description": "Element selector or style name."
+                },
+                {
+                  "name": "nameOrValue",
+                  "type": "Any",
+                  "description": "Style name or expected value."
+                },
+                {
+                  "name": "valueOrTimeout",
+                  "type": "Any?",
+                  "description": "Expected value or timeout."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitStyle waits for a style value to appear.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "WAIT_STYLE_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "selector",
+                  "type": "String",
+                  "description": "Element selector."
+                },
+                {
+                  "name": "name",
+                  "type": "String",
+                  "description": "Style name."
+                },
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Expected value."
+                },
+                {
+                  "name": "timeout",
+                  "type": "Int?",
+                  "description": "Wait timeout in milliseconds."
+                }
+              ],
+              "variadic": true,
+              "description": "WaitStyleAll waits for a style value on all matching elements.",
+              "return": {
+                "type": "Boolean",
+                "description": "True when the expected state is observed on every match."
+              }
+            }
+          ]
+        },
+        {
+          "name": "X",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "XPath expression."
+                }
+              ],
+              "description": "XPathSelector creates a reusable XPath query selector.",
+              "return": {
+                "type": "QuerySelector",
+                "description": "XPath query selector."
+              }
+            }
+          ]
+        },
+        {
+          "name": "XPATH",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "root",
+                  "type": "HTMLPage|HTMLDocument|HTMLElement",
+                  "description": "HTML root."
+                },
+                {
+                  "name": "expression",
+                  "type": "String",
+                  "description": "XPath expression."
+                }
+              ],
+              "description": "XPath evaluates an XPath expression against an HTML root.",
+              "return": {
+                "type": "Any",
+                "description": "XPath evaluation result."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

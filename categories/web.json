@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "web",
+    "name": "Web"
+  },
+  "modules": [
+    {
+      "id": "montferret/article",
+      "href": "/modules/montferret/article/index.json"
+    },
+    {
+      "id": "montferret/html",
+      "href": "/modules/montferret/html/index.json"
+    },
+    {
+      "id": "montferret/rest",
+      "href": "/modules/montferret/rest/index.json"
+    },
+    {
+      "id": "montferret/robots",
+      "href": "/modules/montferret/robots/index.json"
+    },
+    {
+      "id": "montferret/sitemap",
+      "href": "/modules/montferret/sitemap/index.json"
+    }
+  ]
+}

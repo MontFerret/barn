@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/postgres",
+  "owner": "montferret",
+  "name": "postgres",
+  "description": "Postgres database handles under DB::POSTGRES for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.10",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/postgres/versions/1.0.0-rc.10/index.json"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "databases",
+    "name": "Databases"
+  },
+  "modules": [
+    {
+      "id": "montferret/postgres",
+      "href": "/modules/montferret/postgres/index.json"
+    },
+    {
+      "id": "montferret/redis",
+      "href": "/modules/montferret/redis/index.json"
+    },
+    {
+      "id": "montferret/sqlite",
+      "href": "/modules/montferret/sqlite/index.json"
+    }
+  ]
+}

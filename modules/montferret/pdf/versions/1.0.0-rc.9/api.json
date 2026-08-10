@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/pdf",
+  "version": "1.0.0-rc.9",
+  "namespaces": [
+    {
+      "name": "DOCUMENT::PDF",
+      "functions": [
+        {
+          "name": "OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "pathValue"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

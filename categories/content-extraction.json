@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "content-extraction",
+    "name": "Content Extraction"
+  },
+  "modules": [
+    {
+      "id": "montferret/article",
+      "href": "/modules/montferret/article/index.json"
+    }
+  ]
+}

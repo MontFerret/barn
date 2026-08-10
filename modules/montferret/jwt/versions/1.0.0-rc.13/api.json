@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/jwt",
+  "version": "1.0.0-rc.13",
+  "namespaces": [
+    {
+      "name": "SECURITY::JWT",
+      "functions": [
+        {
+          "name": "HMAC_KEY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "secret",
+                  "type": "String|Binary",
+                  "description": "Nonempty HMAC secret."
+                }
+              ],
+              "variadic": true,
+              "description": "HMACKey creates an opaque HMAC key from secret material.",
+              "return": {
+                "type": "JWTKey",
+                "description": "Opaque HMAC key handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "INSPECT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "args"
+                }
+              ],
+              "variadic": true
+            }
+          ]
+        },
+        {
+          "name": "PRIVATE_KEY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "pem",
+                  "type": "String",
+                  "description": "PEM-encoded RSA, ECDSA, or Ed25519 private key."
+                }
+              ],
+              "variadic": true,
+              "description": "PrivateKey parses a PEM-encoded private key into an opaque key handle.",
+              "return": {
+                "type": "JWTKey",
+                "description": "Opaque private key handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUBLIC_KEY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "pem",
+                  "type": "String",
+                  "description": "PEM-encoded RSA, ECDSA, or Ed25519 public key."
+                }
+              ],
+              "variadic": true,
+              "description": "PublicKey parses a PEM-encoded public key into an opaque key handle.",
+              "return": {
+                "type": "JWTKey",
+                "description": "Opaque public key handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SIGN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "args"
+                }
+              ],
+              "variadic": true
+            }
+          ]
+        },
+        {
+          "name": "VERIFY",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "args"
+                }
+              ],
+              "variadic": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "ai",
+    "name": "Ai"
+  },
+  "modules": [
+    {
+      "id": "montferret/llm",
+      "href": "/modules/montferret/llm/index.json"
+    }
+  ]
+}

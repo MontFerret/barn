@@ -1,0 +1,164 @@
+<h1 id="xml-module">XML Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/xml</code> registers XML helpers under the <code>XML</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>XML::ROOT</code></li>
+<li><code>XML::TEXT</code></li>
+<li><code>XML::ATTR</code></li>
+<li><code>XML::CHILDREN</code></li>
+<li><code>XML::DECODE</code></li>
+<li><code>XML::DECODE_STREAM</code></li>
+<li><code>XML::ENCODE</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/xml
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	xmlmodule &#34;github.com/MontFerret/contrib/modules/xml&#34;
+)
+
+func main() {
+	xmlMod, err := xmlmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(xmlMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>XML::ROOT</code></td>
+<td><code>XML::ROOT(value)</code></td>
+<td><code>Object | None</code></td>
+<td>Returns the root element for a document, the element itself, or <code>None</code> for text nodes.</td>
+</tr>
+<tr>
+<td><code>XML::TEXT</code></td>
+<td><code>XML::TEXT(value)</code></td>
+<td><code>String</code></td>
+<td>Concatenates descendant text in document order.</td>
+</tr>
+<tr>
+<td><code>XML::ATTR</code></td>
+<td><code>XML::ATTR(value, name)</code></td>
+<td><code>String | None</code></td>
+<td>Returns an attribute value from a document root or element.</td>
+</tr>
+<tr>
+<td><code>XML::CHILDREN</code></td>
+<td><code>XML::CHILDREN(value)</code></td>
+<td><code>Array</code></td>
+<td>Returns element children, delegates through document roots, or <code>[]</code> for text nodes.</td>
+</tr>
+<tr>
+<td><code>XML::DECODE</code></td>
+<td><code>XML::DECODE(data)</code></td>
+<td><code>Object</code></td>
+<td>Decodes XML text into a normalized document object.</td>
+</tr>
+<tr>
+<td><code>XML::DECODE_STREAM</code></td>
+<td><code>XML::DECODE_STREAM(data)</code></td>
+<td><code>Iterator&lt;Object&gt;</code></td>
+<td>Streams normalized XML events.</td>
+</tr>
+<tr>
+<td><code>XML::ENCODE</code></td>
+<td><code>XML::ENCODE(value)</code></td>
+<td><code>String</code></td>
+<td>Encodes a normalized document or element object into XML text.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decoded-shapes">Decoded Shapes</h2>
+<p>Decoded documents use a stable, normalized object model:</p>
+<pre><code class="language-json">{
+  &#34;type&#34;: &#34;document&#34;,
+  &#34;root&#34;: {
+    &#34;type&#34;: &#34;element&#34;,
+    &#34;name&#34;: &#34;book&#34;,
+    &#34;attrs&#34;: { &#34;id&#34;: &#34;123&#34; },
+    &#34;children&#34;: [
+      { &#34;type&#34;: &#34;text&#34;, &#34;value&#34;: &#34;hello&#34; }
+    ]
+  }
+}
+</code></pre>
+<p><code>XML::DECODE_STREAM</code> yields event objects in this shape:</p>
+<pre><code class="language-json">{ &#34;type&#34;: &#34;startElement&#34;, &#34;name&#34;: &#34;book&#34;, &#34;attrs&#34;: { &#34;id&#34;: &#34;123&#34; } }
+{ &#34;type&#34;: &#34;text&#34;, &#34;value&#34;: &#34;hello&#34; }
+{ &#34;type&#34;: &#34;endElement&#34;, &#34;name&#34;: &#34;book&#34; }
+</code></pre>
+<h2 id="examples">Examples</h2>
+<h3 id="decode-a-document">Decode A Document</h3>
+<pre><code class="language-fql">RETURN XML::DECODE(&#34;&lt;book id=\&#34;123\&#34;&gt;&lt;title&gt;Hello&lt;/title&gt;&lt;/book&gt;&#34;)
+</code></pre>
+<h3 id="stream-xml-events">Stream XML Events</h3>
+<pre><code class="language-fql">FOR event IN XML::DECODE_STREAM(&#34;&lt;book&gt;&lt;title&gt;Hello&lt;/title&gt;&lt;/book&gt;&#34;)
+RETURN event
+</code></pre>
+<h3 id="access-the-root-element">Access The Root Element</h3>
+<pre><code class="language-fql">LET doc = XML::DECODE(&#34;&lt;book id=\&#34;123\&#34;&gt;&lt;title&gt;Hello&lt;/title&gt;&lt;/book&gt;&#34;)
+RETURN XML::ROOT(doc)
+</code></pre>
+<h3 id="read-descendant-text">Read Descendant Text</h3>
+<pre><code class="language-fql">LET doc = XML::DECODE(&#34;&lt;book&gt;&lt;title&gt;Hello&lt;/title&gt;&lt;subtitle&gt;World&lt;/subtitle&gt;&lt;/book&gt;&#34;)
+RETURN XML::TEXT(doc)
+</code></pre>
+<h3 id="read-attributes-and-children">Read Attributes And Children</h3>
+<pre><code class="language-fql">LET doc = XML::DECODE(&#34;&lt;book id=\&#34;123\&#34;&gt;&lt;title&gt;Hello&lt;/title&gt;&lt;/book&gt;&#34;)
+LET root = XML::ROOT(doc)
+
+RETURN {
+  id: XML::ATTR(root, &#34;id&#34;),
+  children: XML::CHILDREN(root)
+}
+</code></pre>
+<h3 id="encode-a-normalized-element">Encode A Normalized Element</h3>
+<pre><code class="language-fql">RETURN XML::ENCODE({
+  type: &#34;element&#34;,
+  name: &#34;book&#34;,
+  attrs: { id: &#34;123&#34; },
+  children: [
+    { type: &#34;text&#34;, value: &#34;Hello&#34; }
+  ]
+})
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>XML::ROOT</code>, <code>XML::TEXT</code>, <code>XML::ATTR</code>, and <code>XML::CHILDREN</code> operate on normalized XML document, element, and text nodes.</li>
+<li><code>XML::ROOT(document)</code> returns the document root, <code>XML::ROOT(element)</code> returns the element, and <code>XML::ROOT(text)</code> returns <code>None</code>.</li>
+<li><code>XML::TEXT</code> concatenates nested text nodes in document order and returns an empty string when no descendant text exists.</li>
+<li><code>XML::ATTR</code> returns <code>None</code> for missing attributes and for text nodes.</li>
+<li><code>XML::CHILDREN(text)</code> returns a fresh empty array.</li>
+<li><code>XML::DECODE</code> and <code>XML::DECODE_STREAM</code> accept both string and binary XML input.</li>
+<li>Qualified names such as <code>ns:book</code> and <code>xmlns:ns</code> are preserved exactly.</li>
+<li>CDATA is normalized into <code>text</code> nodes or events.</li>
+<li>Comments, directives, and processing instructions are skipped in v1.</li>
+<li>Text inside elements is preserved exactly, including whitespace-only text nodes.</li>
+<li>Whitespace-only text outside the single root element is ignored.</li>
+<li><code>XML::ENCODE</code> sorts attribute names for deterministic output because Ferret objects are unordered.</li>
+</ul>

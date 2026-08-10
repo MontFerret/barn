@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/redis",
+  "owner": "montferret",
+  "name": "redis",
+  "description": "Redis connection handles and generic command execution under DB::REDIS for Ferret.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.3",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/redis/versions/1.0.0-rc.3/index.json"
+    }
+  ]
+}

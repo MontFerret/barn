@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/yaml",
+  "version": "1.0.0-rc.15",
+  "namespaces": [
+    {
+      "name": "YAML",
+      "functions": [
+        {
+          "name": "DECODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "data",
+                  "type": "String|Binary",
+                  "description": "YAML content."
+                }
+              ],
+              "variadic": true,
+              "description": "Decode decodes a single YAML document.",
+              "return": {
+                "type": "Any",
+                "description": "Decoded value."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DECODE_ALL",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "data",
+                  "type": "String|Binary",
+                  "description": "YAML content."
+                }
+              ],
+              "variadic": true,
+              "description": "DecodeAll decodes all YAML documents from a YAML stream.",
+              "return": {
+                "type": "Array\u003cAny\u003e",
+                "description": "Decoded values in document order."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ENCODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": "Any",
+                  "description": "Value to encode."
+                }
+              ],
+              "variadic": true,
+              "description": "Encode serializes a value into YAML text.",
+              "return": {
+                "type": "String",
+                "description": "YAML text."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

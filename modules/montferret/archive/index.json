@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/archive",
+  "owner": "montferret",
+  "name": "archive",
+  "description": "Sandboxed ZIP, TAR, TAR.GZ, and TGZ inspection and extraction under ARCHIVE.",
+  "versions": [
+    {
+      "version": "1.0.0-rc.4",
+      "publishedAt": "2026-08-10T23:54:44Z",
+      "href": "/modules/montferret/archive/versions/1.0.0-rc.4/index.json"
+    }
+  ]
+}

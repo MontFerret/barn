@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "category": {
+    "id": "web-crawling",
+    "name": "Web Crawling"
+  },
+  "modules": [
+    {
+      "id": "montferret/robots",
+      "href": "/modules/montferret/robots/index.json"
+    },
+    {
+      "id": "montferret/sitemap",
+      "href": "/modules/montferret/sitemap/index.json"
+    }
+  ]
+}
