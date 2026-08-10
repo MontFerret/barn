@@ -261,7 +261,7 @@ func TestClientSearchBoundsConcurrentDescriptionRequests(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/index.json":
-			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
 		case "/modules.json":
 			_, _ = fmt.Fprintf(response, `{"schemaVersion":1,"modules":[%s]}`, entries.String())
 		default:
@@ -388,32 +388,32 @@ func TestClientRejectsMalformedAndUnsupportedArtifacts(t *testing.T) {
 	}{
 		{
 			name:   "duplicate key",
-			root:   `{"schemaVersion":1,"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`,
+			root:   `{"schemaVersion":1,"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`,
 			target: ErrMalformedArtifact,
 		},
 		{
 			name:   "trailing document",
-			root:   `{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}} {}`,
+			root:   `{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}} {}`,
 			target: ErrMalformedArtifact,
 		},
 		{
 			name:   "unknown field",
-			root:   `{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"},"extra":true}`,
+			root:   `{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"},"extra":true}`,
 			target: ErrMalformedArtifact,
 		},
 		{
 			name:   "missing known artifact",
-			root:   `{"schemaVersion":1,"artifacts":{"modules":"/modules.json","plugins":"/plugins.json"}}`,
+			root:   `{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"modules":"/modules.json","plugins":"/plugins.json"}}`,
 			target: ErrMalformedArtifact,
 		},
 		{
 			name:   "unsupported version",
-			root:   `{"schemaVersion":2,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`,
+			root:   `{"schemaVersion":2,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`,
 			target: ErrUnsupportedFormat,
 		},
 		{
 			name:   "unsafe link",
-			root:   `{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"https://example.org/modules.json","plugins":"/plugins.json"}}`,
+			root:   `{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"https://example.org/modules.json","plugins":"/plugins.json"}}`,
 			target: ErrMalformedArtifact,
 		},
 	} {
@@ -440,7 +440,7 @@ func TestClientRejectsNonCanonicalArtifactIdentity(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/index.json":
-			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
 		case "/modules.json":
 			_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"MontFerret/Archive","href":"/module.json"}]}`))
 		default:
@@ -468,7 +468,7 @@ func TestClientRejectsInvalidPublicationTimestamps(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				switch request.URL.Path {
 				case "/index.json":
-					_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
+					_, _ = response.Write([]byte(`{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
 				case "/modules.json":
 					_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"acme/module","href":"/module.json"}]}`))
 				case "/module.json":
@@ -569,6 +569,7 @@ func newDistributionServer(t *testing.T, prefix string, requireHeader bool) *htt
 	routes := map[string]string{
 		prefix + "/index.json": `{
   "schemaVersion": 1,
+  "source": {"commit":"0123456789abcdef0123456789abcdef01234567"},
   "artifacts": {
     "modules": "./modules.json",
     "categories": "./categories.json",
@@ -665,7 +666,7 @@ func newSingleModuleSearchServer(t *testing.T, detail http.HandlerFunc) *httptes
 	return httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/index.json":
-			_, _ = response.Write([]byte(`{"schemaVersion":1,"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
+			_, _ = response.Write([]byte(`{"schemaVersion":1,"source":{"commit":"0123456789abcdef0123456789abcdef01234567"},"artifacts":{"categories":"/categories.json","modules":"/modules.json","plugins":"/plugins.json"}}`))
 		case "/modules.json":
 			_, _ = response.Write([]byte(`{"schemaVersion":1,"modules":[{"id":"acme/browser","href":"/browser.json"}]}`))
 		case "/browser.json":

@@ -27,12 +27,13 @@ var categoryIDPattern = regexp.MustCompile(categoryIDPatternText)
 
 type (
 	// Distribution is the complete generated public registry representation.
-	// File paths are slash-separated and relative to dist/.
+	// File paths are slash-separated and relative to the artifact-tree root.
 	Distribution struct {
 		Files map[string][]byte
 	}
 
 	RootIndex             = registryartifact.RootIndex
+	RootSource            = registryartifact.RootSource
 	ModuleIndex           = registryartifact.ModuleIndex
 	ModuleIndexEntry      = registryartifact.ModuleIndexEntry
 	CategoryIndex         = registryartifact.CategoryIndex
@@ -57,8 +58,8 @@ type (
 	}
 )
 
-// GenerateDistribution projects a resolved Registry into the complete public dist/ tree.
-func GenerateDistribution(registry *Registry) (*Distribution, error) {
+// GenerateDistribution projects a resolved Registry into the complete public artifact tree.
+func GenerateDistribution(registry *Registry, sourceCommit string) (*Distribution, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
@@ -66,6 +67,7 @@ func GenerateDistribution(registry *Registry) (*Distribution, error) {
 	distribution := &Distribution{Files: make(map[string][]byte)}
 	if err := addArtifactJSON(distribution, "index.json", RootIndex{
 		SchemaVersion: registryartifact.SchemaVersion,
+		Source:        RootSource{Commit: sourceCommit},
 		Artifacts: map[string]string{
 			registryartifact.ArtifactKeyCategories: "/categories.json",
 			registryartifact.ArtifactKeyModules:    "/modules/index.json",
@@ -226,6 +228,14 @@ func addModuleToDistribution(distribution *Distribution, registryModule *Module)
 			Href:        "/" + path.Join(versionPath, "index.json"),
 		})
 
+		if version.Artifacts != nil {
+			for relativePath, data := range version.Artifacts {
+				distribution.Files[relativePath] = bytes.Clone(data)
+			}
+
+			continue
+		}
+
 		ferret := ""
 		if version.Manifest.Compatibility != nil {
 			ferret = version.Manifest.Compatibility.Ferret
@@ -363,11 +373,21 @@ func sortVersions(versions []*Version) error {
 
 // WriteDistribution replaces dist/ with the complete generated distribution.
 func WriteDistribution(root string, distribution *Distribution) error {
+	return WriteDistributionPath(filepath.Join(root, distributionPath), distribution)
+}
+
+// WriteDistributionPath atomically replaces destination with the complete generated distribution.
+func WriteDistributionPath(destination string, distribution *Distribution) error {
 	if distribution == nil {
 		return fmt.Errorf("distribution is nil")
 	}
 
-	staging, err := os.MkdirTemp(root, ".dist-staging-")
+	parent := filepath.Dir(destination)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("create distribution parent: %w", err)
+	}
+
+	staging, err := os.MkdirTemp(parent, ".distribution-staging-")
 	if err != nil {
 		return fmt.Errorf("create distribution staging directory: %w", err)
 	}
@@ -394,7 +414,6 @@ func WriteDistribution(root string, distribution *Distribution) error {
 		}
 	}
 
-	destination := filepath.Join(root, distributionPath)
 	if _, err := os.Lstat(destination); os.IsNotExist(err) {
 		if err := os.Rename(staging, destination); err != nil {
 			return fmt.Errorf("install distribution: %w", err)
@@ -405,7 +424,7 @@ func WriteDistribution(root string, distribution *Distribution) error {
 		return fmt.Errorf("inspect existing distribution: %w", err)
 	}
 
-	backupRoot, err := os.MkdirTemp(root, ".dist-replacement-")
+	backupRoot, err := os.MkdirTemp(parent, ".distribution-replacement-")
 	if err != nil {
 		return fmt.Errorf("create distribution replacement directory: %w", err)
 	}
@@ -434,11 +453,15 @@ func WriteDistribution(root string, distribution *Distribution) error {
 
 // VerifyDistribution compares the complete generated dist/ tree with the expected distribution.
 func VerifyDistribution(root string, distribution *Distribution) error {
+	return VerifyDistributionPath(filepath.Join(root, distributionPath), distribution)
+}
+
+// VerifyDistributionPath compares a complete generated tree with the expected distribution.
+func VerifyDistributionPath(destination string, distribution *Distribution) error {
 	if distribution == nil {
 		return fmt.Errorf("distribution is nil")
 	}
 
-	destination := filepath.Join(root, distributionPath)
 	actual := make(map[string][]byte)
 	err := filepath.WalkDir(destination, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -475,18 +498,18 @@ func VerifyDistribution(root string, distribution *Distribution) error {
 	for _, relativePath := range sortedDistributionPaths(distribution.Files) {
 		current, exists := actual[relativePath]
 		if !exists {
-			return fmt.Errorf("dist/%s is missing; run barn generate", relativePath)
+			return fmt.Errorf("%s is missing from generated distribution", relativePath)
 		}
 
 		if !bytes.Equal(current, distribution.Files[relativePath]) {
-			return fmt.Errorf("dist/%s is stale; run barn generate", relativePath)
+			return fmt.Errorf("%s is stale in generated distribution", relativePath)
 		}
 
 		delete(actual, relativePath)
 	}
 
 	if len(actual) != 0 {
-		return fmt.Errorf("dist/%s is unexpected; run barn generate", sortedDistributionPaths(actual)[0])
+		return fmt.Errorf("%s is unexpected in generated distribution", sortedDistributionPaths(actual)[0])
 	}
 
 	return nil

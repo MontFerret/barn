@@ -9,7 +9,8 @@ This file is the canonical operating guide for coding agents working in this rep
 * CI and pinned-release analysis toolchain: Go 1.26.x
 * Barn is the Git-backed Ferret Registry.
 * Human-reviewed source records live under `registry/`.
-* The public static distribution is generated under ignored `dist/` and deployed to GitHub Pages.
+* The public static distribution is persisted on the CI-owned `gh-pages` branch and published from its root.
+* Ignored `dist/` remains disposable full-generation output for local recovery and debugging.
 * Barn consumes Registry v1, Module Manifest v1, and Registry artifact v1 contracts from `github.com/MontFerret/specs`.
 
 Do not infer Barn's current behavior from historical Registry layouts, old release procedures, or consumer-side path construction. The current source tree, generated artifact links, public packages, tests, and workflows are authoritative.
@@ -23,11 +24,12 @@ Registry validation and generation:
 ```text
 registry source records
     -> strict source loading and identity validation
-    -> exact tag/commit resolution through anonymous HTTPS Git
-    -> pinned ferret.yaml, go.mod, README.md, and Go source inspection
-    -> package, documentation, and Ferret API projections
+    -> changed-release selection from gh-pages source provenance
+    -> exact tag/commit resolution and enrichment for affected releases
+    -> byte-for-byte reuse of unchanged immutable release artifacts
+    -> cheap module, category, plugin, and root projections
     -> deterministic Registry artifact documents
-    -> atomic dist/ replacement or exact dist/ verification
+    -> validated candidate committed atomically to gh-pages
 ```
 
 Release preparation:
@@ -55,6 +57,8 @@ Do not move behavior across these seams merely to make an individual change conv
 
 * `registry/` is the reviewed canonical source tree.
 * `dist/` is derived output. Contributors and agents must not manually create, edit, or commit it.
+* `gh-pages` contains generated artifacts only, is updated only by trusted CI, and is the persistent cache for immutable release artifacts.
+* Root `source.commit` is the exact processed `main` commit, never the `gh-pages` commit.
 * `registry/modules/<owner>/<module>/manifest.json` and `versions/v<semver>.json` are the only production module source locations. Do not add fallback discovery for older layouts.
 * `registry/plugins/` is required but reserved. Do not add plugin records until a real plugin registration contract exists.
 * Registry identity is the exact lowercase `<owner>/<module>` coordinate. Reject mixed-case or mismatched input; never silently lowercase persisted identities.
@@ -67,6 +71,7 @@ Do not move behavior across these seams merely to make an individual change conv
 * `api.json` is derived from statically analyzable function registration in the pinned Go source. Do not copy the manifest's exports list into the generated API reference.
 * Barn must fail closed when it cannot safely or unambiguously inspect a release. It must not emit partial artifacts.
 * Generated artifacts are deterministic functions of validated canonical records and their exact pinned source content, except that publication time is read from the stored record.
+* Incremental generation preserves unchanged version directories byte-for-byte and always rebuilds cheap global projections.
 * `publishedAt` is assigned once after a new version reaches `main`. It is stored in the canonical version record and never regenerated from the clock or Git history.
 * Existing published version source, identity, commit, tag, and `publishedAt` values are immutable.
 * Contributor-supplied `publishedAt` values on new versions are invalid.
@@ -80,8 +85,9 @@ Begin with the package or source area that owns the requested behavior. Do not i
 
 * `cmd/barn`
     * Owns the maintainer and CI command-line entry point.
-    * Commands are `validate`, `generate`, `verify`, `check-immutable`, and `stamp`.
-    * `--root` always means the Barn repository root containing `registry/`; generated output is `dist/` beneath that root.
+    * Commands are `validate`, `generate`, `verify`, `verify-tree`, `check-immutable`, and `stamp`.
+    * `generate` supports `full`, `auto`, and `incremental` modes plus explicit source, previous-tree, and output paths.
+    * `--root` always means the Barn repository root containing `registry/`; default local output is `dist/` beneath that root.
     * Keep argument parsing and process-facing error reporting here. Registry behavior belongs in `internal/barn`.
 
 ### Canonical Registry loading and resolved model
@@ -135,6 +141,10 @@ Begin with the package or source area that owns the requested behavior. Do not i
     * `WriteDistribution` replaces `dist/` atomically.
     * `VerifyDistribution` rejects missing, stale, unexpected, symlink, and non-regular output.
     * Change Specs artifact types or validation in Specs, not through Barn-local wire-schema copies.
+* `internal/barn/generation.go` and `internal/barn/distribution_cache.go`
+    * Own source-commit resolution, full/auto/incremental selection, validated published-state loading, changed-release enrichment, and candidate validation.
+    * Treat any non-Registry source change as a full-rebuild trigger and reject malformed, divergent, unsafe, or source-inconsistent cache state.
+    * Reuse only complete validated immutable release bundles; never reuse partial or ambiguous artifacts.
 
 ### Immutability and publication timestamps
 
@@ -259,7 +269,7 @@ Treat `pkg/registry` and `pkg/publish` as external APIs.
 * Validate generated documents with the owning Specs validator before writing them.
 * Preserve atomic replacement so failed generation cannot leave a partially updated public tree.
 * Verification must compare the complete expected tree, including unexpected files and unsafe file types.
-* Pull-request-generated output is a validation artifact and is discarded. Only a fully stamped `main` state is deployed.
+* Pull-request-generated output is a validation artifact and is discarded. Only a fully stamped `main` state is committed to `gh-pages`.
 
 ## Publication and immutability rules
 
@@ -268,7 +278,7 @@ The publication lifecycle is intentionally asymmetric:
 1. A contributor submits a new manifest/version record without `publishedAt`.
 2. Pull-request CI uses a fixed preview timestamp only to prove generation.
 3. After merge, the stamping workflow assigns the real timestamp to missing records and commits that transition.
-4. CI validates the transition and deploys only when every version is stamped.
+4. CI validates the transition and commits a complete candidate to `gh-pages` only when every version is stamped.
 5. The source identity, tag, commit, and timestamp are immutable thereafter.
 
 Agents must not:
@@ -856,6 +866,8 @@ make test-race                       # Run all tests with the race detector.
 make validate                        # Validate canonical records and all pinned releases.
 make generate                        # Replace dist/ with the generated distribution.
 make verify                          # Verify the complete current dist/ tree.
+make generate-pages OUTPUT=<path> PREVIOUS=<path>  # Build a full or incremental Pages candidate.
+make verify-pages OUTPUT=<path> SOURCE_COMMIT=<rev> # Validate a candidate without remote enrichment.
 make check-immutable BASE=<git-ref>  # Compare published source history with a Git base.
 make stamp                           # Assign timestamps to unstamped canonical versions.
 make check-stamped                   # Require every canonical version to be stamped.
