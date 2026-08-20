@@ -13,24 +13,45 @@
               "parameters": [
                 {
                   "name": "target",
-                  "type": "Model|Session",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "Model"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Session"
+                      }
+                    ]
+                  },
                   "description": "Model or session to execute against."
                 },
                 {
                   "name": "message",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Final user message."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Messages, instructions, and execution options."
                 }
               ],
               "variadic": true,
               "description": "Chat produces an assistant response to a user message.\n\nA successful session call commits the supplied messages and response to the\nsession history.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "Assistant response."
               }
             }
@@ -43,29 +64,53 @@
               "parameters": [
                 {
                   "name": "target",
-                  "type": "Model|Session",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "Model"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Session"
+                      }
+                    ]
+                  },
                   "description": "Model or session to execute against."
                 },
                 {
                   "name": "text",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Text to classify."
                 },
                 {
                   "name": "labels",
-                  "type": "Array\u003cString\u003e",
+                  "type": {
+                    "kind": "named",
+                    "name": "Array\u003cString\u003e"
+                  },
                   "description": "Allowed labels."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Classification and execution options."
                 }
               ],
               "variadic": true,
               "description": "Classify selects one allowed label for the input text.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Object containing the selected label."
               }
             }
@@ -78,29 +123,53 @@
               "parameters": [
                 {
                   "name": "target",
-                  "type": "Model|Session",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "Model"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Session"
+                      }
+                    ]
+                  },
                   "description": "Model or session to execute against."
                 },
                 {
                   "name": "text",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Source text."
                 },
                 {
                   "name": "schema",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "JSON Schema for the result."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Extraction and execution options."
                 }
               ],
               "variadic": true,
               "description": "Extract produces structured data and validates it against a JSON Schema.",
               "return": {
-                "type": "Any",
+                "type": {
+                  "kind": "named",
+                  "name": "Any"
+                },
                 "description": "Validated structured value."
               }
             }
@@ -113,13 +182,19 @@
               "parameters": [
                 {
                   "name": "session",
-                  "type": "Session",
+                  "type": {
+                    "kind": "named",
+                    "name": "Session"
+                  },
                   "description": "Session to copy."
                 }
               ],
               "description": "Fork creates an independent session with copied state and history.",
               "return": {
-                "type": "Session",
+                "type": {
+                  "kind": "named",
+                  "name": "Session"
+                },
                 "description": "Independent copied session."
               }
             }
@@ -132,24 +207,45 @@
               "parameters": [
                 {
                   "name": "target",
-                  "type": "Model|Session",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "Model"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Session"
+                      }
+                    ]
+                  },
                   "description": "Model or session to execute against."
                 },
                 {
                   "name": "prompt",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "User prompt."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Generation and execution options."
                 }
               ],
               "variadic": true,
               "description": "Generate produces text from a prompt.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "Generated text."
               }
             }
@@ -162,13 +258,19 @@
               "parameters": [
                 {
                   "name": "session",
-                  "type": "Session",
+                  "type": {
+                    "kind": "named",
+                    "name": "Session"
+                  },
                   "description": "Session whose history to read."
                 }
               ],
               "description": "History returns a copy of a session's visible messages.",
               "return": {
-                "type": "Array\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
                 "description": "Copied role and content messages."
               }
             }
@@ -181,18 +283,36 @@
               "parameters": [
                 {
                   "name": "provider",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Provider identifier."
                 },
                 {
                   "name": "options",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Model configuration."
                 }
               ],
               "description": "Model creates a provider-backed model or session.",
               "return": {
-                "type": "Model|Session",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "Model"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "Session"
+                    }
+                  ]
+                },
                 "description": "Configured model or session."
               }
             }
@@ -205,13 +325,19 @@
               "parameters": [
                 {
                   "name": "session",
-                  "type": "Session",
+                  "type": {
+                    "kind": "named",
+                    "name": "Session"
+                  },
                   "description": "Session to reset."
                 }
               ],
               "description": "Reset clears the visible history of a session.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the history is cleared."
               }
             }
@@ -224,18 +350,27 @@
               "parameters": [
                 {
                   "name": "model",
-                  "type": "Model",
+                  "type": {
+                    "kind": "named",
+                    "name": "Model"
+                  },
                   "description": "Stateless model."
                 },
                 {
                   "name": "options",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Session configuration."
                 }
               ],
               "description": "Session creates a local conversation session from a stateless model.",
               "return": {
-                "type": "Session",
+                "type": {
+                  "kind": "named",
+                  "name": "Session"
+                },
                 "description": "Local conversation session."
               }
             }
@@ -248,24 +383,45 @@
               "parameters": [
                 {
                   "name": "target",
-                  "type": "Model|Session",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "Model"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Session"
+                      }
+                    ]
+                  },
                   "description": "Model or session to execute against."
                 },
                 {
                   "name": "text",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Text to summarize."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Summarization and execution options."
                 }
               ],
               "variadic": true,
               "description": "Summarize produces a summary of the input text.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "Generated summary."
               }
             }

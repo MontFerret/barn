@@ -13,18 +13,27 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 },
                 {
                   "name": "name",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "New worksheet name."
                 }
               ],
               "description": "AddSheet creates a worksheet and returns its handle.",
               "return": {
-                "type": "Worksheet",
+                "type": {
+                  "kind": "named",
+                  "name": "Worksheet"
+                },
                 "description": "Created worksheet handle."
               }
             }
@@ -37,18 +46,27 @@
               "parameters": [
                 {
                   "name": "worksheet",
-                  "type": "Worksheet",
+                  "type": {
+                    "kind": "named",
+                    "name": "Worksheet"
+                  },
                   "description": "Worksheet handle."
                 },
                 {
                   "name": "rows",
-                  "type": "Array\u003cArray\u003cAny\u003e\u003e",
+                  "type": {
+                    "kind": "named",
+                    "name": "Array\u003cArray\u003cAny\u003e\u003e"
+                  },
                   "description": "Rectangular rows to append."
                 }
               ],
               "description": "Append appends rows after the last populated worksheet row.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the rows are appended."
               }
             }
@@ -61,13 +79,19 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle to close."
                 }
               ],
               "description": "Close releases workbook resources. Closing an already closed workbook is\nidempotent.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the workbook is closed."
               }
             }
@@ -80,7 +104,10 @@
               "parameters": [],
               "description": "Create creates a new in-memory XLSX workbook.",
               "return": {
-                "type": "Workbook",
+                "type": {
+                  "kind": "named",
+                  "name": "Workbook"
+                },
                 "description": "New workbook handle."
               }
             }
@@ -93,18 +120,27 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 },
                 {
                   "name": "name",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Worksheet name."
                 }
               ],
               "description": "DeleteSheet deletes a worksheet and invalidates its existing handles.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the worksheet is deleted."
               }
             }
@@ -117,18 +153,52 @@
               "parameters": [
                 {
                   "name": "worksheet",
-                  "type": "Worksheet",
+                  "type": {
+                    "kind": "named",
+                    "name": "Worksheet"
+                  },
                   "description": "Worksheet handle."
                 },
                 {
                   "name": "cell",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "A1 cell reference."
                 }
               ],
               "description": "Get reads a single worksheet cell.",
               "return": {
-                "type": "String|Boolean|Int|Float|DateTime|None",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "Boolean"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "Int"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "Float"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "DateTime"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
                 "description": "Cell value."
               }
             }
@@ -141,13 +211,19 @@
               "parameters": [
                 {
                   "name": "path",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Sandboxed workbook path."
                 }
               ],
               "description": "Open opens an existing XLSX workbook through the configured filesystem.",
               "return": {
-                "type": "Workbook",
+                "type": {
+                  "kind": "named",
+                  "name": "Workbook"
+                },
                 "description": "Open workbook handle."
               }
             }
@@ -160,18 +236,27 @@
               "parameters": [
                 {
                   "name": "worksheet",
-                  "type": "Worksheet",
+                  "type": {
+                    "kind": "named",
+                    "name": "Worksheet"
+                  },
                   "description": "Worksheet handle."
                 },
                 {
                   "name": "range",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "A1 range reference."
                 }
               ],
               "description": "Range reads a worksheet range as row arrays.",
               "return": {
-                "type": "Array\u003cArray\u003cAny\u003e\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cArray\u003cAny\u003e\u003e"
+                },
                 "description": "Rectangular row arrays."
               }
             }
@@ -184,13 +269,19 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 }
               ],
               "description": "Save saves a workbook to its current path.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the workbook is saved."
               }
             }
@@ -203,18 +294,27 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 },
                 {
                   "name": "path",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Sandboxed destination path."
                 }
               ],
               "description": "SaveAs saves a workbook to a supplied sandboxed path.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the workbook is saved."
               }
             }
@@ -227,23 +327,60 @@
               "parameters": [
                 {
                   "name": "worksheet",
-                  "type": "Worksheet",
+                  "type": {
+                    "kind": "named",
+                    "name": "Worksheet"
+                  },
                   "description": "Worksheet handle."
                 },
                 {
                   "name": "cell",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "A1 cell reference."
                 },
                 {
                   "name": "value",
-                  "type": "String|Boolean|Int|Float|DateTime|None",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Boolean"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Int"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Float"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "DateTime"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "None"
+                      }
+                    ]
+                  },
                   "description": "Scalar value to write."
                 }
               ],
               "description": "Set writes a single worksheet cell.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the value is written."
               }
             }
@@ -256,18 +393,27 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 },
                 {
                   "name": "name",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Worksheet name."
                 }
               ],
               "description": "Sheet returns a worksheet handle by name.",
               "return": {
-                "type": "Worksheet",
+                "type": {
+                  "kind": "named",
+                  "name": "Worksheet"
+                },
                 "description": "Worksheet handle."
               }
             }
@@ -280,13 +426,19 @@
               "parameters": [
                 {
                   "name": "workbook",
-                  "type": "Workbook",
+                  "type": {
+                    "kind": "named",
+                    "name": "Workbook"
+                  },
                   "description": "Workbook handle."
                 }
               ],
               "description": "Sheets returns worksheet names in workbook order.",
               "return": {
-                "type": "Array\u003cString\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cString\u003e"
+                },
                 "description": "Worksheet names in workbook order."
               }
             }
@@ -299,23 +451,35 @@
               "parameters": [
                 {
                   "name": "worksheet",
-                  "type": "Worksheet",
+                  "type": {
+                    "kind": "named",
+                    "name": "Worksheet"
+                  },
                   "description": "Worksheet handle."
                 },
                 {
                   "name": "rangeOrCell",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "A1 range or starting-cell reference."
                 },
                 {
                   "name": "rows",
-                  "type": "Array\u003cArray\u003cAny\u003e\u003e",
+                  "type": {
+                    "kind": "named",
+                    "name": "Array\u003cArray\u003cAny\u003e\u003e"
+                  },
                   "description": "Rectangular rows to write."
                 }
               ],
               "description": "WriteRange writes a rectangular matrix into a worksheet range.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the rows are written."
               }
             }

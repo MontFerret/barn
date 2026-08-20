@@ -13,13 +13,19 @@
               "parameters": [
                 {
                   "name": "database",
-                  "type": "SQLiteDatabase",
+                  "type": {
+                    "kind": "named",
+                    "name": "SQLiteDatabase"
+                  },
                   "description": "Database handle."
                 }
               ],
               "description": "Begin starts a SQLite transaction and returns a transaction handle.",
               "return": {
-                "type": "SQLiteTransaction",
+                "type": {
+                  "kind": "named",
+                  "name": "SQLiteTransaction"
+                },
                 "description": "Open transaction handle."
               }
             }
@@ -32,13 +38,19 @@
               "parameters": [
                 {
                   "name": "database",
-                  "type": "SQLiteDatabase",
+                  "type": {
+                    "kind": "named",
+                    "name": "SQLiteDatabase"
+                  },
                   "description": "Database handle to close."
                 }
               ],
               "description": "Close closes a SQLite database handle. Closing an already closed database is\nidempotent.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the handle is closed."
               }
             }
@@ -51,13 +63,19 @@
               "parameters": [
                 {
                   "name": "transaction",
-                  "type": "SQLiteTransaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "SQLiteTransaction"
+                  },
                   "description": "Transaction to commit."
                 }
               ],
               "description": "Commit commits a SQLite transaction handle.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the transaction is committed."
               }
             }
@@ -82,13 +100,19 @@
               "parameters": [
                 {
                   "name": "transaction",
-                  "type": "SQLiteTransaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "SQLiteTransaction"
+                  },
                   "description": "Transaction to roll back."
                 }
               ],
               "description": "Rollback rolls back a SQLite transaction handle.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the transaction is rolled back."
               }
             }

@@ -13,24 +13,36 @@
               "parameters": [
                 {
                   "name": "robots",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Parsed robots.txt object."
                 },
                 {
                   "name": "path",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "URL path to evaluate."
                 },
                 {
                   "name": "userAgent",
-                  "type": "String?",
+                  "type": {
+                    "kind": "named",
+                    "name": "String?"
+                  },
                   "description": "Crawler product token, defaulting to *."
                 }
               ],
               "variadic": true,
               "description": "Allows returns whether the path is allowed for the given user-agent.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "Whether the path is allowed."
               }
             }
@@ -43,24 +55,36 @@
               "parameters": [
                 {
                   "name": "robots",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Parsed robots.txt object."
                 },
                 {
                   "name": "path",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "URL path to evaluate."
                 },
                 {
                   "name": "userAgent",
-                  "type": "String?",
+                  "type": {
+                    "kind": "named",
+                    "name": "String?"
+                  },
                   "description": "Crawler product token, defaulting to *."
                 }
               ],
               "variadic": true,
               "description": "Match returns effective rule-match details for the given path.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Effective rule-match details."
               }
             }
@@ -73,14 +97,20 @@
               "parameters": [
                 {
                   "name": "text",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Robots.txt content."
                 }
               ],
               "variadic": true,
               "description": "Parse parses raw robots.txt content into a plain object.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Parsed groups, sitemaps, and host metadata."
               }
             }
@@ -93,14 +123,20 @@
               "parameters": [
                 {
                   "name": "robots",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Parsed robots.txt object."
                 }
               ],
               "variadic": true,
               "description": "Sitemaps returns the declared sitemap URLs from a parsed robots object.",
               "return": {
-                "type": "Array\u003cString\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cString\u003e"
+                },
                 "description": "Declared sitemap URLs."
               }
             }

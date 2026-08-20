@@ -13,14 +13,29 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "YAML content."
                 }
               ],
               "variadic": true,
               "description": "Decode decodes a single YAML document.",
               "return": {
-                "type": "Any",
+                "type": {
+                  "kind": "named",
+                  "name": "Any"
+                },
                 "description": "Decoded value."
               }
             }
@@ -33,14 +48,29 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "YAML content."
                 }
               ],
               "variadic": true,
               "description": "DecodeAll decodes all YAML documents from a YAML stream.",
               "return": {
-                "type": "Array\u003cAny\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cAny\u003e"
+                },
                 "description": "Decoded values in document order."
               }
             }
@@ -53,14 +83,20 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Any",
+                  "type": {
+                    "kind": "named",
+                    "name": "Any"
+                  },
                   "description": "Value to encode."
                 }
               ],
               "variadic": true,
               "description": "Encode serializes a value into YAML text.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "YAML text."
               }
             }

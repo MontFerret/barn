@@ -13,18 +13,36 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "XML document, element, or text node."
                 },
                 {
                   "name": "name",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "Attribute name."
                 }
               ],
               "description": "Attr returns the named attribute value for an XML element-like node.",
               "return": {
-                "type": "String|None",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
                 "description": "Attribute value or None."
               }
             }
@@ -37,13 +55,19 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "XML document, element, or text node."
                 }
               ],
               "description": "Children returns the child nodes for an XML document or element.",
               "return": {
-                "type": "Array\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
                 "description": "Child nodes, or an empty array for a text node."
               }
             }
@@ -56,14 +80,29 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "XML content."
                 }
               ],
               "variadic": true,
               "description": "Decode decodes XML content into a normalized document object.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Normalized XML document."
               }
             }
@@ -76,14 +115,29 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "XML content."
                 }
               ],
               "variadic": true,
               "description": "DecodeStream decodes XML content lazily into normalized XML events.",
               "return": {
-                "type": "Iterator\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Iterator\u003cObject\u003e"
+                },
                 "description": "Iterator over normalized XML events."
               }
             }
@@ -96,14 +150,20 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Normalized XML document or element."
                 }
               ],
               "variadic": true,
               "description": "Encode serializes a normalized XML document or element into XML text.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "XML text."
               }
             }
@@ -116,13 +176,28 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "XML document, element, or text node."
                 }
               ],
               "description": "Root returns the root element for a document or the element itself.",
               "return": {
-                "type": "Object|None",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "Object"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
                 "description": "Root or element node, or None for a text node."
               }
             }
@@ -135,13 +210,19 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "XML document, element, or text node."
                 }
               ],
               "description": "Text returns the descendant text content for an XML node.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "Concatenated text content."
               }
             }

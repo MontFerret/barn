@@ -13,19 +13,37 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "TOML content."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Decoding options."
                 }
               ],
               "variadic": true,
               "description": "Decode decodes a TOML document into an object.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Decoded TOML object."
               }
             }
@@ -38,19 +56,28 @@
               "parameters": [
                 {
                   "name": "value",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Object to encode."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Encoding options."
                 }
               ],
               "variadic": true,
               "description": "Encode serializes an object into TOML text.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "TOML text."
               }
             }

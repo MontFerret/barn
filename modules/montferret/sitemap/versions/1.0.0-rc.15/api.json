@@ -13,19 +13,28 @@
               "parameters": [
                 {
                   "name": "url",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "HTTP or HTTPS sitemap URL."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Fetching and traversal options."
                 }
               ],
               "variadic": true,
               "description": "Fetch fetches and parses a single sitemap document.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Parsed URL set or sitemap index."
               }
             }
@@ -38,19 +47,28 @@
               "parameters": [
                 {
                   "name": "url",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "HTTP or HTTPS sitemap URL."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Fetching and traversal options."
                 }
               ],
               "variadic": true,
               "description": "Stream fetches a sitemap tree and returns a lazy URL iterator.",
               "return": {
-                "type": "Iterator\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Iterator\u003cObject\u003e"
+                },
                 "description": "Lazy iterator over URL entries."
               }
             }
@@ -63,19 +81,28 @@
               "parameters": [
                 {
                   "name": "url",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "HTTP or HTTPS sitemap URL."
                 },
                 {
                   "name": "options",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Fetching and traversal options."
                 }
               ],
               "variadic": true,
               "description": "URLs fetches a sitemap tree and returns flattened URL entries.",
               "return": {
-                "type": "Array\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
                 "description": "Flattened URL entries."
               }
             }

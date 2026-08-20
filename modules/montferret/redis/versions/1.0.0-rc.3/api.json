@@ -13,13 +13,19 @@
               "parameters": [
                 {
                   "name": "connection",
-                  "type": "RedisConnection",
+                  "type": {
+                    "kind": "named",
+                    "name": "RedisConnection"
+                  },
                   "description": "Connection handle to close."
                 }
               ],
               "description": "Close closes a Redis connection handle. Closing an already closed connection is idempotent.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the handle is closed."
               }
             }
@@ -32,13 +38,19 @@
               "parameters": [
                 {
                   "name": "options",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Redis connection options."
                 }
               ],
               "description": "Open creates a Redis connection handle from connection options.",
               "return": {
-                "type": "RedisConnection",
+                "type": {
+                  "kind": "named",
+                  "name": "RedisConnection"
+                },
                 "description": "Open connection handle."
               }
             }

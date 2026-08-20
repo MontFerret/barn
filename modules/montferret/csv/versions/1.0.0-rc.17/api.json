@@ -13,19 +13,28 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "CSV text."
                 },
                 {
                   "name": "opts",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Decoding options."
                 }
               ],
               "variadic": true,
               "description": "Decode decodes CSV text into an array of objects.\nWhen opts.header is true, the first record defines object keys; otherwise\nopts.columns or generated colN names are used.",
               "return": {
-                "type": "Array\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
                 "description": "Decoded objects."
               }
             }
@@ -38,19 +47,28 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "CSV text."
                 },
                 {
                   "name": "opts",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Decoding options."
                 }
               ],
               "variadic": true,
               "description": "DecodeRows decodes CSV text into an array of raw row arrays.\nIt keeps header rows as data and applies decoding options to each field.",
               "return": {
-                "type": "Array\u003cArray\u003cAny\u003e\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cArray\u003cAny\u003e\u003e"
+                },
                 "description": "Decoded row arrays."
               }
             }
@@ -63,19 +81,37 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "CSV content."
                 },
                 {
                   "name": "opts",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Decoding options."
                 }
               ],
               "variadic": true,
               "description": "DecodeRowsStream decodes CSV content from string or binary input.\nIt returns an iterator value over row arrays keyed by the original CSV\nrecord number after parsing.",
               "return": {
-                "type": "Iterator\u003cArray\u003cAny\u003e\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Iterator\u003cArray\u003cAny\u003e\u003e"
+                },
                 "description": "Iterator over decoded row arrays."
               }
             }
@@ -88,19 +124,37 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "CSV content."
                 },
                 {
                   "name": "opts",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Decoding options."
                 }
               ],
               "variadic": true,
               "description": "DecodeStream decodes CSV content from string or binary input.\nIt returns an iterator value over objects keyed by the original CSV\nrecord number after parsing.",
               "return": {
-                "type": "Iterator\u003cObject\u003e",
+                "type": {
+                  "kind": "named",
+                  "name": "Iterator\u003cObject\u003e"
+                },
                 "description": "Iterator over decoded objects."
               }
             }
@@ -113,19 +167,28 @@
               "parameters": [
                 {
                   "name": "data",
-                  "type": "Array\u003cAny\u003e",
+                  "type": {
+                    "kind": "named",
+                    "name": "Array\u003cAny\u003e"
+                  },
                   "description": "Objects or row arrays to encode."
                 },
                 {
                   "name": "opts",
-                  "type": "Object?",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
                   "description": "Encoding options."
                 }
               ],
               "variadic": true,
               "description": "Encode encodes an array of objects or row arrays into CSV text.\nObject input can emit a header row depending on opts.header and opts.columns.",
               "return": {
-                "type": "String",
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
                 "description": "CSV text."
               }
             }

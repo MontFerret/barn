@@ -13,14 +13,37 @@
               "parameters": [
                 {
                   "name": "input",
-                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
                   "description": "HTML content or node."
                 }
               ],
               "variadic": true,
               "description": "Extract returns normalized article content and metadata for the provided HTML.",
               "return": {
-                "type": "Object",
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
                 "description": "Normalized article content and metadata."
               }
             }
@@ -33,14 +56,46 @@
               "parameters": [
                 {
                   "name": "input",
-                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
                   "description": "HTML content or node."
                 }
               ],
               "variadic": true,
               "description": "Markdown returns only the cleaned article Markdown.",
               "return": {
-                "type": "String|None",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
                 "description": "Cleaned article Markdown or None."
               }
             }
@@ -53,14 +108,46 @@
               "parameters": [
                 {
                   "name": "input",
-                  "type": "String|HTMLPage|HTMLDocument|HTMLElement",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
                   "description": "HTML content or node."
                 }
               ],
               "variadic": true,
               "description": "Text returns only the cleaned article text.",
               "return": {
-                "type": "String|None",
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
                 "description": "Cleaned article text or None."
               }
             }

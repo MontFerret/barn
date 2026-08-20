@@ -13,14 +13,29 @@
               "parameters": [
                 {
                   "name": "secret",
-                  "type": "String|Binary",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
                   "description": "Nonempty HMAC secret."
                 }
               ],
               "variadic": true,
               "description": "HMACKey creates an opaque HMAC key from secret material.",
               "return": {
-                "type": "JWTKey",
+                "type": {
+                  "kind": "named",
+                  "name": "JWTKey"
+                },
                 "description": "Opaque HMAC key handle."
               }
             }
@@ -46,14 +61,20 @@
               "parameters": [
                 {
                   "name": "pem",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "PEM-encoded RSA, ECDSA, or Ed25519 private key."
                 }
               ],
               "variadic": true,
               "description": "PrivateKey parses a PEM-encoded private key into an opaque key handle.",
               "return": {
-                "type": "JWTKey",
+                "type": {
+                  "kind": "named",
+                  "name": "JWTKey"
+                },
                 "description": "Opaque private key handle."
               }
             }
@@ -66,14 +87,20 @@
               "parameters": [
                 {
                   "name": "pem",
-                  "type": "String",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
                   "description": "PEM-encoded RSA, ECDSA, or Ed25519 public key."
                 }
               ],
               "variadic": true,
               "description": "PublicKey parses a PEM-encoded public key into an opaque key handle.",
               "return": {
-                "type": "JWTKey",
+                "type": {
+                  "kind": "named",
+                  "name": "JWTKey"
+                },
                 "description": "Opaque public key handle."
               }
             }

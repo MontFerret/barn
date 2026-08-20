@@ -13,13 +13,19 @@
               "parameters": [
                 {
                   "name": "config",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Client defaults and base URL."
                 }
               ],
               "description": "Client creates a reusable HTTP API client from a configuration object.",
               "return": {
-                "type": "RESTClient",
+                "type": {
+                  "kind": "named",
+                  "name": "RESTClient"
+                },
                 "description": "Reusable queryable HTTP client."
               }
             }

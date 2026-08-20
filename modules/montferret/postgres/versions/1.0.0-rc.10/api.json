@@ -13,13 +13,19 @@
               "parameters": [
                 {
                   "name": "database",
-                  "type": "PostgresDatabase",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresDatabase"
+                  },
                   "description": "Database handle."
                 }
               ],
               "description": "Begin starts a Postgres transaction and returns a transaction handle.",
               "return": {
-                "type": "PostgresTransaction",
+                "type": {
+                  "kind": "named",
+                  "name": "PostgresTransaction"
+                },
                 "description": "Open transaction handle."
               }
             }
@@ -32,13 +38,19 @@
               "parameters": [
                 {
                   "name": "database",
-                  "type": "PostgresDatabase",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresDatabase"
+                  },
                   "description": "Database handle to close."
                 }
               ],
               "description": "Close closes a Postgres database handle. Closing an already closed database\nis idempotent.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the handle is closed."
               }
             }
@@ -51,13 +63,19 @@
               "parameters": [
                 {
                   "name": "transaction",
-                  "type": "PostgresTransaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresTransaction"
+                  },
                   "description": "Transaction to commit."
                 }
               ],
               "description": "Commit commits a Postgres transaction handle.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the transaction is committed."
               }
             }
@@ -70,13 +88,19 @@
               "parameters": [
                 {
                   "name": "options",
-                  "type": "Object",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
                   "description": "Postgres connection options."
                 }
               ],
               "description": "Open creates a Postgres database handle from connection options.",
               "return": {
-                "type": "PostgresDatabase",
+                "type": {
+                  "kind": "named",
+                  "name": "PostgresDatabase"
+                },
                 "description": "Open database handle."
               }
             }
@@ -89,13 +113,19 @@
               "parameters": [
                 {
                   "name": "transaction",
-                  "type": "PostgresTransaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresTransaction"
+                  },
                   "description": "Transaction to roll back."
                 }
               ],
               "description": "Rollback rolls back a Postgres transaction handle.",
               "return": {
-                "type": "Boolean",
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
                 "description": "True when the transaction is rolled back."
               }
             }
