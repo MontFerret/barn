@@ -324,6 +324,221 @@ The analyzer recognizes a bounded set of static registration patterns described 
 * Modules with hooks or host values but no registered Ferret functions should still emit a valid empty namespace list.
 * Keep analyzer diagnostics tied to stable error kinds and normalized source positions.
 
+## Engineering principles
+
+* Preserve correctness first.
+* Preserve existing observable behavior unless the task explicitly requires changing it.
+* Identify behavioral ownership before changing implementation.
+* Preserve architectural boundaries and lifecycle invariants.
+* Prefer the smallest coherent change that fully solves the task.
+* Prefer straightforward, idiomatic Go over clever implementations.
+* Keep behavior, state ownership, dependencies, cancellation, cleanup, and resource lifetimes obvious.
+* Avoid abstractions, indirection, and generalization without a concrete need.
+* Do not optimize by intuition alone. Measure performance-sensitive work.
+* Reuse existing patterns only after verifying that they have the same semantics, ownership, and lifecycle.
+* Existing technical debt is not precedent.
+* Leave already-correct code alone.
+* Do not treat the first working implementation as final.
+* A task is complete only after implementation, validation, self-review, necessary corrections, final validation, and complete diff inspection.
+
+Barn's deterministic output, immutable publication history, fail-closed inspection, and security boundaries are correctness requirements, not optional quality improvements.
+
+## Ownership and design
+
+Before making a non-trivial change, identify:
+
+1. the subsystem, package, or type that owns the requested behavior;
+2. the observable contract being preserved or changed;
+3. the Registry, publication, security, or lifecycle invariants involved;
+4. resource ownership and cleanup, where applicable;
+5. compatibility surfaces, where applicable;
+6. whether the change is concurrency-sensitive; and
+7. whether the change is performance-significant.
+
+Begin with the code that owns the behavior. Use the package and source map in this guide rather than inferring ownership from a convenient call site.
+
+Do not move behavior into a caller, adapter, command, transport, or presentation layer merely because that call site is convenient.
+
+Keep Registry domain behavior separate from transport, serialization, presentation, Git hosting, and protocol translation.
+
+Adapters should validate and translate boundary values, delegate behavior to the owning implementation, and translate results back. They should not become alternate owners of domain semantics.
+
+Avoid duplicated semantics. When Specs or a Barn subsystem owns a rule, consumers should use that rule rather than independently reproducing it.
+
+Keep reusable behavior at the narrowest ownership level that preserves clear responsibility and testability.
+
+Do not expose implementation details across boundaries merely to avoid making a proper change in the owning layer.
+
+## Abstraction discipline
+
+Prefer concrete types and direct implementations until there is a real need for abstraction.
+
+Introduce an interface when there is:
+
+* an actual substitution boundary;
+* more than one meaningful implementation;
+* a focused consumer-side contract; or
+* a concrete test seam that materially improves the design.
+
+Interfaces are usually most useful at the point of consumption.
+
+Do not introduce interfaces, wrappers, managers, factories, helpers, generic types, or abstraction layers merely:
+
+* for aesthetic symmetry;
+* to reduce a few repeated lines;
+* because another codebase uses the pattern;
+* because the pattern is fashionable;
+* to prepare for hypothetical future requirements;
+* solely to make mocking convenient; or
+* to make files shorter.
+
+Similar-looking code is not sufficient reason to share an implementation.
+
+Extract shared behavior only when the duplicated code represents the same concept with the same semantics, ownership, and lifecycle.
+
+Do not force Registry, transport, Git, source inspection, or artifact concepts into a generic abstraction merely because their implementations have structural similarities.
+
+Prefer deletion and simplification over another abstraction layer. An abstraction must make Barn easier to reason about, not merely make the code look more architecturally sophisticated.
+
+## Semantic types
+
+Introduce a named type when it can own meaningful:
+
+* semantics;
+* invariants;
+* behavior;
+* validation;
+* conversion;
+* lifecycle; or
+* API safety.
+
+Do not introduce a wrapper merely to give a primitive another name.
+
+Once an established semantic type exists, APIs should normally use that type rather than repeatedly bypassing it with its underlying primitive.
+
+Do not leave a meaningful Registry or publication type disconnected from its intrinsic behavior while free functions continue operating on primitive representations.
+
+Unless zero has a natural and safe domain meaning, reserve zero as the unspecified or invalid value for enum-like types and begin meaningful values after it. Keep sibling enum-like APIs consistent and document intentional meaningful-zero exceptions.
+
+## Dependencies and construction
+
+Required dependencies must be explicit.
+
+Construct required services or dependencies once at a clear composition root and pass them into consumers.
+
+A constructor must not interpret a nil required dependency as a request to construct a hidden default.
+
+Tests should construct required dependency graphs explicitly rather than relying on production-only hidden initialization.
+
+Optional callbacks, options, or dependencies may have defaults only when their optional nature and default behavior are intentional and clear.
+
+Avoid service locators, hidden globals, implicit initialization, and invisible dependency construction when explicit construction is practical.
+
+Keep option validation, trimming, normalization, and defaulting close to the option-owning type or constructor. Do not repeat normalization rules across unrelated layers.
+
+## Nil semantics
+
+Do not silently assign convenient semantics to nil.
+
+Required dependencies should reject or make impossible nil values rather than converting nil into hidden defaults.
+
+Require non-nil `context.Context` values at operation boundaries. Do not silently replace nil with `context.Background()`.
+
+Do not normally make nil receivers valid domain objects or map nil receivers to lifecycle states such as closed.
+
+Use nil semantics only when nil is genuinely part of the intentional contract.
+
+## Resource ownership and lifecycle
+
+Make resource ownership visible in APIs.
+
+A type that owns a closable resource should normally expose the lifecycle operation itself rather than exposing a DTO-like field that callers must discover and close manually.
+
+When the distinction matters, make clear whether resources are owned, borrowed, leased, or transferred.
+
+Release partially acquired resources on every failure path.
+
+Cleanup must remain correct on:
+
+* successful completion;
+* errors;
+* cancellation;
+* early returns;
+* partial initialization; and
+* repeated shutdown or close operations when idempotency is part of the contract.
+
+Do not eagerly materialize, retain, copy, or promote expensive resources without a concrete need.
+
+When values can escape their current execution or ownership scope, make the resulting ownership transition explicit.
+
+Lifecycle transitions should have one authoritative representation. Derived flags, events, atomics, and channels must not become competing sources of truth.
+
+Do not represent the same lifecycle independently through several synchronization mechanisms without a concrete reason.
+
+## Context and cancellation
+
+Accept `context.Context` at operation boundaries that can block, perform I/O, be canceled, perform potentially long-running work, or participate in a caller-owned lifecycle.
+
+Check or propagate cancellation early enough to avoid committing state after cancellation.
+
+Propagate caller contexts rather than replacing them with `context.Background()` without a concrete protocol or lifecycle reason.
+
+Do not store contexts in long-lived structs. Store explicit lifecycle state and cancellation functions when ownership requires them.
+
+Long-running work must not outlive its owning context without an explicit lifecycle reason.
+
+Preserve cancellation through HTTP requests, Git operations, source materialization, Go analysis, Registry navigation, and release preparation.
+
+## Concurrency
+
+Every goroutine must have a clear owner, a termination condition, and a cleanup path.
+
+Reason about goroutine termination under normal completion, errors, cancellation, partial startup, and repeated shutdown. Avoid goroutine leaks.
+
+Identify which mutex protects each field or cohesive state group.
+
+Keep lock scope narrow and make protected state obvious from the type layout or a focused invariant comment.
+
+Prefer one cohesive lock-owned representation when fields participate in the same lifecycle transition.
+
+Do not mix mutexes, atomics, channels, once-guards, and duplicate flags for the same state without a concrete ordering or performance reason.
+
+Do not call unknown, external, blocking, or potentially re-entrant code while holding a lock unless the ordering requirement is explicit and tested.
+
+Do not hold service locks across blocking I/O or potentially long-running operations unless a documented invariant requires it.
+
+Return copies or immutable views when callers must not mutate synchronized internal state.
+
+Preserve required ordering between state changes and externally visible events.
+
+Scrutinize repeated hand-written lifecycle or synchronization state machines. Extract a shared mechanism only when the semantics and ownership genuinely match.
+
+Never trade obvious domain ownership for a clever concurrency abstraction.
+
+Concurrency comments should explain ownership, invariants, and non-obvious ordering rather than narrating individual statements.
+
+For changes that add or materially alter shared mutable state or goroutine coordination, add deterministic lifecycle or concurrency tests and run the race detector on affected packages.
+
+## Error handling
+
+Use standard Go error mechanisms.
+
+Preserve error identity with `%w`, `errors.Is`, and `errors.As` when callers need classification.
+
+Add context at subsystem and process boundaries without repeating the entire call chain.
+
+Keep sentinel errors for stable conditions callers need to classify. Use typed errors when they express a meaningful structured contract.
+
+Do not compare error strings in production code when `errors.Is`, `errors.As`, a sentinel, or a typed error can express the contract.
+
+Distinguish cancellation, invalid input, missing or stale state, dependency failure, transport failure, Registry or runtime failure, and internal invariant violations when callers need different behavior.
+
+Do not collapse expected user or domain failures and internal invariant violations into the same conceptual error class.
+
+Do not log and return the same error at every layer. The owning process, transport, or presentation boundary should decide how to report it.
+
+Error messages should normally be concise lowercase sentence fragments unless proper names or externally defined text require otherwise.
+
 ## Go type and file structure rules
 
 These rules apply to new or substantially reworked handwritten Go unless the task explicitly requires otherwise. Existing focused exceptions do not justify adding new structural violations, and agents must not split untouched files solely to make older code conform.
@@ -384,13 +599,33 @@ These types own different behavior and should not be hidden in one grouped decla
 These rules apply to new or substantially reworked code unless the task explicitly requires another organization.
 
 * A file centered on a primary method-bearing type should normally contain the type, its methods, and its constructors.
-* If logic conceptually belongs to the primary type, implement it as a method.
-* If logic does not belong to the type and must remain a package-level function, place it in a helper-focused file owned by that responsibility.
-* Prefer package-level functions only when there is no natural owning type or the behavior is genuinely package-wide.
+* Prefer a method when behavior belongs intrinsically to a semantic type, depends on its invariants, naturally queries or transforms it, manages its resources, or operates primarily on receiver-owned state.
+* Prefer a package-level function when behavior constructs a value, combines unrelated values, performs genuinely package-wide work, converts between values with no natural receiver, or has no meaningful owning type.
+* Do not turn every helper into a method merely for stylistic uniformity.
+* Do not introduce a meaningful domain type while leaving its intrinsic behavior in free functions that accept primitive representations.
 * Do not mix unrelated package-level helpers into a type-centered file.
 * Focused files such as `errors.go` may contain methods for a small family of related error wrappers.
 * Keep orchestration functions thin; move validation, transformation, transport, and persistence details to the component that owns them.
+* Keep conversion helpers near the boundary or concern they serve.
 * Do not refactor an existing file merely because it predates these rules. When a requested change materially expands an existing structural problem, improve the touched area without broad unrelated churn.
+
+## Package, file, and abstraction organization
+
+Do not use `helpers.go`, `utils.go`, `common.go`, or similarly generic files as long-term containers for unrelated functionality.
+
+A helper-focused file is acceptable while its contents represent one cohesive concern. As a concern grows, organize files around responsibilities a reader can predict, such as lifecycle, conversion, snapshots, parameters, identifiers, protocol state, or validation.
+
+Keep package boundaries domain-oriented.
+
+Do not create a package solely to shorten files, remove a few repeated lines, manufacture an abstraction layer, or avoid keeping related private implementation together.
+
+Prefer cohesive private implementation types and files over unnecessary package fragmentation.
+
+Keep symbols unexported until another package has a real need for them.
+
+Avoid both files, functions, types, or packages doing too much and tightly related behavior being fragmented across excessive helpers, files, interfaces, or packages.
+
+Behavioral ownership should be predictable from code organization.
 
 ## Comment rules for functions and methods
 
@@ -401,6 +636,8 @@ These rules apply to new or substantially reworked code unless the task explicit
 * Prefer comments that explain why the code exists, what must remain true, or how it is meant to be used.
 * For Git inspection, source materialization, distribution generation, immutability, and publication code, describe the safety or history invariant instead of narrating individual statements.
 * Do not write comments that merely restate the function name or signature.
+* Keep future plans out of code comments unless the comment describes a deliberate current boundary.
+* Update or remove comments when implementation changes make them obsolete.
 * Avoid comment wallpaper. Dense, meaningful comments are preferable to mechanical documentation of obvious code.
 
 Preferred for a public contract:
@@ -744,35 +981,61 @@ When assisting with this repository, avoid large unstructured blocks of prose or
 * Distinguish successful source validation from network, DNS, Git, proxy, cache, or sandbox failures.
 * Report only tests, generation, review, and validation that actually ran.
 
-## Development practice expectations
+## API and compatibility discipline
 
-### Core principles
+Treat observable behavior as intentional until the task establishes otherwise.
 
-* Preserve correctness, deterministic output, immutable history, and security boundaries first.
-* Identify the owning subsystem before making a non-trivial change.
-* Prefer the smallest coherent change that fully solves the task.
-* Preserve existing behavior unless the task explicitly changes a contract.
-* Add or update meaningful tests for behavior changes.
-* Do not perform opportunistic refactors or record cleanup.
-* Distinguish product failures from unavailable network, DNS, Git, or module-proxy access.
-* A non-trivial task is complete only after implementation, validation, final self-review, any necessary corrections, and inspection of the complete diff.
+Do not change public, external, wire-visible, CLI-visible, persistence-visible, generated-artifact, or integration-visible behavior as collateral cleanup.
 
-### Required workflow for non-trivial changes
+Treat `pkg/registry`, `pkg/publish`, generated Registry documents, canonical source records, command output, error classification, ordering, paths, and links as compatibility-sensitive surfaces.
 
-1. Identify the owning package, source area, or external Specs contract.
-2. State the invariant or public behavior being preserved or intentionally changed.
-3. Inspect existing tests and the closest local implementation pattern.
-4. Implement the smallest design consistent with current ownership.
-5. Add or update focused correctness and negative tests.
-6. Run the narrowest relevant tests first.
-7. Run broader source or Registry validation in proportion to the change.
-8. Review the complete resulting change for correctness, security, determinism, architecture, API compatibility, and test quality.
-9. Fix issues found during review without expanding into unrelated cleanup.
-10. Re-run validation affected by review-driven changes.
-11. Inspect the final diff as a whole.
-12. Report exactly what was changed and which checks actually ran.
+Do not export new symbols merely to share implementation internally. Prefer unexported helpers inside the owning package before expanding an API surface.
 
-Do not consider a task complete merely because it compiles or a single happy-path test passes.
+When a new exported symbol is genuinely necessary, document the external contract clearly.
+
+For compatibility-sensitive changes:
+
+* make the behavior change explicit;
+* preserve previous behavior unless incompatibility is required;
+* add focused tests at the observable boundary;
+* document intentional incompatibility; and
+* avoid unrelated contract changes.
+
+Do not infer desired behavior from historical discussions, abandoned designs, stale comments, obsolete Registry layouts, or future-looking architecture when current implementation and tests establish a different contract.
+
+## Testing standards
+
+Add or update tests for every behavior change.
+
+Put tests beside the package or layer that owns the behavior whenever practical.
+
+Test observable contracts rather than mirroring implementation details.
+
+Prefer focused table-driven tests when several inputs exercise the same contract.
+
+Use `t.Helper()` in reusable test helpers.
+
+Use `t.Cleanup()` for restoring globals, closing resources, canceling contexts, or stopping goroutines.
+
+Avoid sleeps as synchronization. Use channels, contexts, deadlines, barriers, or observable state.
+
+Keep timeouts bounded and generous enough for CI while still detecting leaks and deadlocks.
+
+Verify both success and failure paths.
+
+Test relevant positive cases, negative cases, boundary conditions, invalid inputs, cancellation, cleanup, repeated operations, idempotency, stale state, error identity, and concurrency behavior.
+
+For bug fixes, add a regression test that fails without the fix whenever practical.
+
+When behavior crosses meaningful package or integration boundaries, include integration-level coverage rather than relying exclusively on direct method tests.
+
+Do not add redundant tests that increase maintenance cost without protecting meaningful behavior.
+
+Avoid brittle tests unnecessarily coupled to implementation details.
+
+Assertions must verify meaningful behavior strongly enough that plausible regressions fail.
+
+A passing test suite is evidence of correctness. It is not evidence that the design is good.
 
 ## Testing map
 
@@ -800,44 +1063,383 @@ Tests should emphasize observable contracts rather than mirroring implementation
 * Publication changes should cover the one allowed stamp transition and forbidden historical mutations.
 * Use temporary repositories, servers, directories, and deterministic clocks/timestamps in tests. Do not depend on live hosting services for unit coverage.
 
+## Performance
+
+Do not optimize by intuition.
+
+A change is performance-significant when it could reasonably affect:
+
+* execution throughput;
+* latency on common or hot paths;
+* allocation patterns;
+* memory usage or retention;
+* repeated parsing, analysis, Git inspection, conversion, or serialization;
+* incremental-generation caching or artifact reuse;
+* synchronization or lock contention;
+* resource cleanup;
+* materialization cost;
+* startup or shutdown performance; or
+* long-running process memory behavior.
+
+Documentation-only, test-only, pure rename, formatting-only, and narrow non-hot-path refactoring changes are normally not performance-significant.
+
+When uncertain whether a change affects a hot path, treat it as performance-significant and measure it.
+
+For performance-significant changes:
+
+1. Identify an existing focused benchmark or add one.
+2. Run it before implementation and retain the baseline.
+3. Implement the change.
+4. Run the same benchmark afterward under comparable conditions.
+5. Compare relevant metrics such as `ns/op`, `B/op`, and `allocs/op`.
+6. Investigate meaningful regressions before considering the task complete.
+
+Inspect performance-sensitive implementations for accidental allocations, unnecessary copying, repeated conversions or computation, unnecessary materialization, avoidable synchronization, increased lock contention, blocking work added to hot paths, unnecessary work added to disabled or unchanged-release paths, and resources retained longer than necessary.
+
+Do not trade clear correctness or maintainability for speculative micro-optimization.
+
+If no relevant benchmark exists for an affected hot path, add one when practical.
+
+If benchmark tooling or the environment is unavailable, state that explicitly rather than claiming performance validation.
+
+## Change discipline
+
+Keep the diff focused on the requested task.
+
+Do not perform opportunistic refactoring, dependency upgrades, formatting churn, API redesign, package reshuffling, abstraction creation, generated-file changes, documentation rewrites, Registry-record cleanup, or implementation of future features unless required by the requested change.
+
+Do not modify unrelated code merely to make it conform stylistically.
+
+Do not use an implementation task as an excuse to clean up the surrounding repository.
+
+A cleanup discovered while working may be included when it is small, local, low-risk, clearly understood, directly related to the affected area, and beneficial to correctness, lifecycle safety, ownership, or maintainability of the requested change.
+
+If a discovered issue requires broader architectural work, preserve current behavior and report it for a separate task.
+
+Preserve unrelated dirty, modified, and untracked files. Do not overwrite, revert, or reformat unrelated user changes.
+
+Do not update dependencies unless the task requires a dependency change.
+
+Do not change compatibility-sensitive contracts as collateral cleanup.
+
+Generated files must be changed through their source inputs or generator when the repository provides such a workflow. Do not manually edit generated output, and inspect generated diffs when generation is required.
+
+## Required workflow for non-trivial changes
+
+For every non-trivial coding task:
+
+1. **Identify ownership.** Determine the Barn subsystem, package, type, source area, or external Specs contract that owns the requested behavior.
+2. **Identify the contract.** Determine the observable behavior, invariants, compatibility requirements, lifecycle, resource ownership, error semantics, determinism, immutability, and security boundaries being preserved or changed.
+3. **Understand the current implementation.** Read current source and tests before relying on architecture prose, historical discussion, old branches, or assumptions.
+4. **Choose the smallest coherent design.** Prefer a local, comprehensible implementation that fits existing ownership boundaries.
+5. **Evaluate risk.** Determine whether the change is security-sensitive, concurrency-sensitive, lifecycle-sensitive, compatibility-sensitive, generation-sensitive, or performance-significant.
+6. **Establish a performance baseline when necessary.** Run relevant benchmarks before changing performance-sensitive code.
+7. **Add or update correctness tests.** Define the observable behavior the implementation must satisfy, including focused negative tests for security-sensitive changes.
+8. **Implement the change.** Keep the implementation focused on the requested behavior.
+9. **Run focused validation.** Run the narrowest tests and checks that directly exercise the changed behavior first.
+10. **Broaden validation according to risk.** Run package, integration, race, lint, build, generation, Registry, or repository-level validation as appropriate.
+11. **Perform the mandatory final self-review.** Review the implementation itself rather than merely confirming that automated checks pass.
+12. **Correct review findings.** Fix problems introduced by the task and appropriate directly adjacent issues according to the scope rules below.
+13. **Re-run affected validation.** Repeat any validation invalidated by review-driven changes.
+14. **Re-run affected benchmarks.** If review-driven corrections affect benchmarked code, repeat the relevant benchmark comparison.
+15. **Inspect the complete final diff.** Review the change as one coherent unit.
+16. **Report accurately.** State what changed, what was tested, what was measured, what was reviewed, and what remains unresolved.
+
+Do not consider a task complete merely because the implementation compiles and its tests pass.
+
 ## Mandatory final self-review
 
-For every non-trivial change, inspect the implementation and complete diff after initial validation.
+Every non-trivial coding task must end with a deliberate design and implementation review before it is considered finished.
 
-Review for:
+Review the final implementation as though reviewing another engineer's pull request.
+
+The review must evaluate the code itself, not merely confirm that compilation, tests, lint, static analysis, generation, or benchmarks succeeded.
+
+Review all changed code and directly adjacent code necessary to understand the change. Inspect the complete diff as a coherent change.
+
+The purpose of self-review is to catch correctness, design, quality, organization, performance, security, determinism, and maintainability problems introduced or exposed by the task. It must not become justification for unrelated refactoring or redesign.
 
 ### Correctness and completeness
 
-* The requested behavior is fully implemented.
-* Error, cancellation, empty, duplicate, boundary, and invalid-state paths are handled.
-* Tests assert the intended contract and would catch plausible regressions.
-* Generated output remains complete and deterministic.
-* Publication and immutable-history transitions remain valid.
+Verify:
+
+* every requested behavior is implemented;
+* explicit non-goals remain untouched;
+* existing behavior is preserved unless intentionally changed;
+* implementation assumptions are valid;
+* boundary conditions and failure paths are handled;
+* partial operations do not leave invalid state or partial artifacts;
+* errors preserve required identity and context;
+* cancellation works where applicable;
+* resources are cleaned up on every relevant path;
+* cleanup and shutdown are idempotent where required;
+* lifecycle transitions remain valid;
+* empty, duplicate, invalid, and stale state is handled correctly;
+* ordering requirements remain correct;
+* concurrent behavior remains correct;
+* goroutines terminate;
+* locks are not held across inappropriate work;
+* generated output remains complete and deterministic;
+* publication and immutable-history transitions remain valid; and
+* public or externally observable semantics match the intended contract.
+
+Look actively for missing cases and regressions rather than reviewing only the successful path.
+
+For bug fixes, verify that a regression test fails without the fix whenever practical.
+
+Ensure tests would detect plausible regressions rather than merely repeat implementation structure.
 
 ### Security and resource handling
 
-* Untrusted URLs, Git repositories, paths, source entries, Markdown, and Go source remain contained.
-* Credentials, redirects, local-network access, unsafe protocols, and source execution have not been enabled accidentally.
-* Temporary resources, HTTP bodies, subprocesses, and files are cleaned up on success, failure, and cancellation.
-* Atomic write/replace behavior remains intact where required.
+Verify:
+
+* untrusted URLs, Git repositories, paths, source entries, Markdown, and Go source remain contained;
+* credentials, redirects, local-network access, unsafe protocols, and source execution have not been enabled accidentally;
+* exact tag and commit pinning remains enforced;
+* temporary resources, HTTP bodies, subprocesses, files, and materialized sources are cleaned up on success, failure, and cancellation;
+* partially acquired resources are released;
+* atomic write and replacement behavior remains intact where required;
+* failed generation cannot leave partial artifacts; and
+* security-sensitive failures remain fail-closed.
+
+### Code clarity and cleanliness
+
+Review the implementation for:
+
+* unnecessary complexity;
+* duplicated behavior or semantics;
+* excessive nesting;
+* awkward control flow;
+* misleading naming;
+* overly large functions;
+* hidden state transitions or ownership;
+* unnecessary mutation or indirection;
+* difficult-to-follow execution paths;
+* dead branches;
+* temporary implementation artifacts;
+* debugging output;
+* obsolete helpers; and
+* abandoned approaches left in comments or code.
+
+The primary execution path should remain easy to follow.
+
+Prefer straightforward code whose behavior can be understood locally.
+
+Simplify code when the simpler implementation is clearly equivalent and easier to reason about. Do not perform stylistic rewrites merely because another form is also valid.
+
+### Go design and API quality
+
+Check:
+
+* API consistency and naming;
+* semantic-type grounding;
+* method-versus-function ownership;
+* constructor behavior;
+* dependency construction;
+* nil semantics;
+* option ownership and normalization;
+* enum zero values;
+* resource ownership and lifecycle visibility;
+* context propagation;
+* error wrapping and classification;
+* synchronization and lock scope;
+* goroutine ownership; and
+* cleanup behavior.
+
+Look specifically for:
+
+* meaningful types bypassed by primitive APIs;
+* free functions containing behavior naturally owned by a type;
+* methods whose behavior does not naturally belong to their receiver;
+* required dependencies hidden behind nil defaults;
+* ambiguous resource ownership;
+* repeated option normalization;
+* competing lifecycle representations; and
+* generic helpers containing unrelated behavior.
+
+Do not introduce a pattern merely because it is common or fashionable elsewhere. It must improve Barn specifically.
+
+### Abstraction quality
+
+Review every new abstraction critically.
+
+Ask:
+
+* Is this abstraction required by the current problem?
+* Does it represent a real concept?
+* Are its implementations genuinely substitutable?
+* Does it clarify ownership?
+* Does it reduce meaningful duplication?
+* Does it simplify reasoning?
+* Would direct concrete code be clearer?
+* Is it preparing for hypothetical future requirements rather than solving a current need?
+
+Remove abstractions that do not earn their complexity.
+
+Do not generalize two concepts merely because their implementations look structurally similar when their semantics, ownership, or lifecycle differ.
 
 ### Architecture and APIs
 
-* Portable schemas remain in Specs.
-* Git, filesystem, transport, and cross-document responsibilities remain in Barn.
-* CLI and caller-owned hosting concerns have not leaked into `pkg/publish`.
-* Public API changes are necessary, documented, and compatibility-conscious.
-* No duplicated validation or artifact-path construction has been introduced.
+Verify:
 
-### Code and test quality
+* behavior remains in the correct subsystem, package, type, and layer;
+* portable schemas and same-document validation remain in Specs;
+* Git, filesystem, transport, cross-record, and cross-document responsibilities remain in Barn;
+* CLI and caller-owned hosting concerns have not leaked into `pkg/publish`;
+* domain behavior has not leaked into transport, adapter, command, or presentation layers;
+* adapters translate and delegate rather than becoming alternate implementations;
+* implementation details have not leaked unnecessarily across package boundaries;
+* semantics are defined once rather than duplicated by consumers;
+* no artifact-path reconstruction has replaced link navigation;
+* new exported APIs are genuinely necessary, documented, and compatibility-conscious;
+* package boundaries remain meaningful;
+* abstractions exist at the correct level; and
+* the implementation has not accidentally incorporated speculative future architecture.
 
-* The implementation is direct, idiomatic, and narrowly scoped.
-* Naming and file placement make ownership obvious.
-* No dead code, debug output, temporary fixtures, generated `dist/`, or unrelated record edits remain.
-* Comments describe current invariants rather than implementation narration or abandoned approaches.
-* Tests include meaningful negative coverage without unnecessary coupling.
+Consider whether the design will remain understandable as the feature evolves, without attempting to design hypothetical future features now.
 
-If review finds an issue, fix it and re-run the checks affected by the correction. Do not use self-review as permission for speculative refactoring or unrelated cleanup.
+### Code organization and split
+
+Verify that files, types, methods, functions, and packages have coherent responsibilities.
+
+Check compliance with the type and file structure rules and the function and method ownership rules.
+
+Look for:
+
+* files doing too much;
+* types owning unrelated behavior;
+* functions performing several unrelated operations;
+* package-level helpers mixed into type-centered files;
+* multiple substantial behavioral types hidden in one file;
+* generic utility dumping grounds;
+* meaningful concepts hidden as local implementation details; and
+* unrelated responsibilities grouped together.
+
+Also look for excessive helper extraction, unnecessary file splitting, tiny interfaces without meaningful boundaries, package fragmentation, forwarding-only layers, and abstractions whose only effect is additional navigation.
+
+Keep tightly related behavior cohesive. Helpers should exist at the narrowest appropriate ownership level.
+
+A reader should be able to predict where behavior lives from its responsibility.
+
+### Comments and documentation
+
+Re-read comments directly affected by the change.
+
+Verify that comments describe current behavior, contracts, invariants, ownership, and lifecycle accurately and do not describe abandoned approaches or speculate unnecessarily about future architecture.
+
+Remove comments made obsolete by clearer code. Do not add comments merely to compensate for an unnecessarily confusing implementation.
+
+When a change alters user-visible, integration-facing, generated-artifact, or public API behavior, evaluate whether documentation must be updated.
+
+Documentation synchronization is part of a behavior change when existing documentation would otherwise become incorrect. Do not use documentation impact as justification for unrelated documentation cleanup.
+
+### Tests
+
+Review the tests themselves, not only their result.
+
+Look for missing positive cases, negative cases, boundary cases, invalid inputs, cancellation paths, cleanup paths, repeated-operation cases, idempotency cases, stale-state cases, error-classification cases, concurrency cases, security bypass attempts, and integration coverage where behavior crosses boundaries.
+
+Check for weak assertions, tests that merely mirror implementation details, brittle dependence on internal structure, redundant coverage, flaky timing, sleeps used for synchronization, leaked goroutines or resources, mutable global state, and unnecessarily narrow happy-path coverage.
+
+Verify that tests assert meaningful observable behavior.
+
+For errors whose identity is part of the contract, test classification rather than only message strings.
+
+For concurrency behavior, prefer deterministic lifecycle tests.
+
+For user-visible behavior spanning multiple layers, ensure package-local tests are supplemented by appropriate boundary or integration coverage.
+
+### Performance
+
+For performance-significant changes, review the final implementation for accidental allocations, repeated work, unnecessary copying, conversions or materialization, unnecessary synchronization, lock contention, blocking work, memory retention, hot-path overhead, and expensive work added to optional or unchanged-release paths.
+
+Compare final benchmark results against the pre-change baseline and verify that benchmark setup remained comparable.
+
+Investigate meaningful regressions. Do not rationalize a regression merely because correctness tests pass.
+
+Do not trade clear correctness or maintainability for speculative micro-optimization.
+
+## Self-review findings and remediation
+
+When self-review finds a problem, classify it before changing code.
+
+### Problems introduced by the task
+
+Fix every meaningful deviation introduced by the task.
+
+This includes correctness problems, regressions, lifecycle problems, resource leaks, concurrency problems, ownership or architecture violations, API problems, security or determinism failures, significant maintainability problems, significant test-coverage gaps, and meaningful performance regressions caused by the change.
+
+Do not leave such problems unresolved merely because the initial implementation works or tests pass.
+
+### Directly adjacent pre-existing problems
+
+A pre-existing issue may be fixed when the correction is small, local, low-risk, clearly understood, directly within the affected area, and relevant to correctness, ownership, lifecycle, architecture, or maintainability of the requested change.
+
+Do not copy a poor existing pattern merely because it already exists. Existing technical debt is not precedent.
+
+### Broader pre-existing problems
+
+If a discovered problem requires broad refactoring, package restructuring, API redesign, unrelated cleanup, dependency changes, speculative architecture, or substantial additional behavior, leave it unchanged and report it as separate follow-up work.
+
+Do not allow self-review to expand the task without a concrete reason.
+
+## What self-review must not become
+
+Do not use self-review as justification for speculative refactoring, unrelated cleanup, rewriting correct code for stylistic consistency, unrelated API redesign, broad package reshuffling, dependency upgrades, abstractions without a concrete need, future features, or semantic changes outside the requested task.
+
+Distinguish actual problems from optional preferences.
+
+Existing code that is clear, correct, idiomatic, appropriately designed, and appropriately organized should be left alone.
+
+## Final diff inspection
+
+Immediately before finishing every non-trivial task, inspect the complete final diff as a whole rather than reviewing only individual files in isolation.
+
+Verify that:
+
+* every changed line belongs to the requested task or a necessary supporting change;
+* unrelated user changes remain intact;
+* no temporary code, debugging output, dead code, or abandoned implementation remains;
+* no accidental behavior, API, compatibility, dependency, or Registry-record changes slipped in;
+* no unrelated refactors or formatting churn slipped in;
+* generated files changed only when their source inputs required regeneration;
+* `dist/` was not hand-edited or included accidentally;
+* tests describe intended behavior rather than implementation details;
+* comments describe current contracts and invariants;
+* package, file, and type responsibilities remain coherent;
+* method and function ownership remains coherent;
+* cancellation, concurrency, cleanup, and resource lifetimes remain correct;
+* deterministic generation, fail-closed validation, and immutable history remain intact; and
+* the result is the smallest coherent change that fully solves the task.
+
+If final inspection causes another change, repeat every validation or benchmark whose result may have been invalidated.
+
+The final diff, not an earlier intermediate implementation, is what must satisfy this guide.
+
+## Validation discipline
+
+Run the narrowest validation that proves the changed behavior first, then broaden according to scope and risk.
+
+Typical progression:
+
+1. focused tests for the affected package or behavior;
+2. directly affected integration tests;
+3. race detection for concurrency-sensitive changes;
+4. static analysis or lint where relevant;
+5. broader repository tests;
+6. build or compilation validation;
+7. generation and verification checks when generated artifacts are involved; and
+8. live Registry validation when the change affects pinned-release inspection and network access is available.
+
+Do not run unrelated expensive validation merely to create validation theater.
+
+Conversely, do not stop at a narrow unit test when the change affects behavior across packages or external boundaries.
+
+After review-driven changes, re-run every command whose result may have been invalidated.
+
+Never claim a validation command succeeded unless it was actually run successfully.
+
+If validation cannot be completed because of tooling, environment, permissions, external dependencies, or time constraints, report the limitation explicitly.
 
 ## Tooling prerequisites
 
@@ -940,21 +1542,89 @@ Live Registry validation is not a hermetic unit test. It resolves public reposit
 
 After any review-driven code change, re-run the checks that exercise that code. Never report validation from before the final implementation state.
 
-## Final reporting
+## Validation evidence and final reporting
 
 When finishing a non-trivial task, report:
 
 * the owning subsystem;
-* the files and public contracts changed;
+* the files changed and behavior changed;
+* public contracts changed, if any;
+* important behavior and invariants preserved or intentionally changed;
 * tests added or updated;
 * commands actually run and their results;
+* race-detector validation when applicable;
+* benchmarks added or updated when applicable;
+* benchmark commands and before/after comparison when applicable;
 * whether live Registry validation was run or blocked by the environment;
 * whether generated `dist/` output was produced and whether it remains untracked/ignored;
 * the final self-review and diff inspection performed;
-* important invariants preserved or intentionally changed; and
-* any remaining limitation or unverified network-dependent behavior.
+* meaningful issues found and corrected during self-review;
+* noteworthy pre-existing issues intentionally left outside scope;
+* remaining concerns or limitations; and
+* environmental or tooling failures that prevented validation.
 
-Do not claim tests, network validation, generation, verification, or review were completed unless they actually were.
+Do not claim:
+
+* tests passed unless they were run;
+* lint or static analysis passed unless it was run;
+* builds passed unless they were run;
+* race detection passed unless it was run;
+* benchmarks were completed unless they were run;
+* generation was verified unless it was verified;
+* live Registry validation passed when it was skipped, blocked, or satisfied only from stale output; or
+* self-review was completed unless the final implementation and complete diff were actually inspected.
+
+Accuracy of the completion report is part of engineering quality.
+
+## Decision bias when uncertain
+
+When uncertain:
+
+* inspect current source and tests before relying on assumptions;
+* preserve existing observable behavior;
+* identify ownership before adding behavior;
+* prefer the smaller local change;
+* prefer concrete code over speculative abstraction;
+* keep dependencies explicit;
+* make ownership and lifecycle explicit;
+* preserve error identity;
+* propagate cancellation;
+* add a focused test;
+* treat concurrency and security changes cautiously;
+* measure when performance might be affected;
+* preserve deterministic output and immutable history;
+* fix concrete review findings before speculative cleanup;
+* avoid expanding the task unnecessarily; and
+* leave already-correct code alone.
+
+When choosing between a clever implementation and an obvious implementation that satisfies the same requirements, prefer the obvious implementation.
+
+When choosing between an abstraction that might become useful and concrete code that clearly solves the current problem, prefer the concrete code.
+
+When choosing between broad cleanup and a focused change, prefer the focused change.
+
+When choosing between assuming behavior and verifying it in source or tests, verify it.
+
+## Definition of done
+
+A non-trivial coding task is complete only when:
+
+* ownership and contracts were understood;
+* the requested behavior is implemented;
+* relevant existing behavior is preserved;
+* deterministic, immutable, and security-sensitive invariants remain satisfied;
+* tests cover the meaningful behavior;
+* relevant validation has passed;
+* concurrency validation has been performed when applicable;
+* performance has been measured when applicable;
+* the implementation has undergone mandatory self-review;
+* review findings introduced by the task have been corrected;
+* affected validation and benchmarks have been repeated after corrections;
+* the complete final diff has been inspected;
+* the final change is focused and coherent; and
+* completion results and limitations are reported accurately.
+
+Compiling is not completion. Passing tests is not completion.
 
 ## Secondary references
 
