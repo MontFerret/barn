@@ -273,17 +273,30 @@ func (fixtureAPIAnalyzer) Analyze(_ context.Context, _, _, _, moduleID, version 
 				Signatures: []api.Signature{{
 					Parameters: []api.Parameter{{
 						Name:        "data",
-						Type:        "String|Binary",
+						Type:        testUnionType("String", "Binary"),
 						Description: "Source content.",
 					}},
 					Description: "Run processes source content.",
-					Return:      &api.Return{Type: "Object", Description: "Processed content."},
+					Return:      &api.Return{Type: testNamedType("Object"), Description: "Processed content."},
 					Throws:      []api.Throw{{Error: "ParseError", Description: "Source content is malformed."}},
 					Deprecated:  "Use PARSE instead.",
 				}},
 			}},
 		}},
 	}, nil
+}
+
+func testNamedType(name string) *api.Type {
+	return &api.Type{Kind: api.TypeKindNamed, Name: name}
+}
+
+func testUnionType(names ...string) *api.Type {
+	members := make([]api.Type, 0, len(names))
+	for _, name := range names {
+		members = append(members, api.Type{Kind: api.TypeKindNamed, Name: name})
+	}
+
+	return &api.Type{Kind: api.TypeKindUnion, Types: members}
 }
 
 func fixtureGitInspector(directory string) GitInspector {

@@ -136,6 +136,14 @@ func BuildDistribution(ctx context.Context, options GenerationOptions) (*Generat
 		registryPaths = append(registryPaths, changedPath)
 	}
 
+	if nonRegistryPath != "" {
+		if mode == GenerationModeAuto {
+			return buildFullDistribution(ctx, registry, inspector, sourceCommit)
+		}
+
+		return nil, fmt.Errorf("incremental generation cannot reuse artifacts after non-Registry change %s", nonRegistryPath)
+	}
+
 	affected, err := affectedReleases(registry, registryPaths)
 	if err != nil {
 		return nil, err
@@ -143,16 +151,6 @@ func BuildDistribution(ctx context.Context, options GenerationOptions) (*Generat
 
 	if err := hydrateRegistryFromDistribution(registry, cached, affected); err != nil {
 		return nil, err
-	}
-
-	if nonRegistryPath != "" {
-		if mode == GenerationModeAuto {
-			clearResolvedRegistry(registry)
-
-			return buildFullDistribution(ctx, registry, inspector, sourceCommit)
-		}
-
-		return nil, fmt.Errorf("incremental generation cannot reuse artifacts after non-Registry change %s", nonRegistryPath)
 	}
 
 	selected := filterRegistryReleases(registry, affected)
@@ -344,18 +342,6 @@ func filterRegistryReleases(registry *Registry, affected map[string]struct{}) *R
 	}
 
 	return filtered
-}
-
-func clearResolvedRegistry(registry *Registry) {
-	for _, module := range registry.Modules {
-		for _, version := range module.Versions {
-			version.Manifest = nil
-			version.PackagePath = ""
-			version.Documentation = nil
-			version.API = nil
-			version.Artifacts = nil
-		}
-	}
 }
 
 func findVersion(module *Module, version string) *Version {

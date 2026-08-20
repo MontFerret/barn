@@ -68,7 +68,7 @@ func baseDefinitions() []sdk.FunctionDef {
 // Deprecated: use Parse instead.
 //
 // @param input {String|Binary} Source content.
-// @return {Object} Parsed content.
+// @return {[Object]} Parsed content.
 // @throws {ParseError} Source content is malformed.
 // @throws {ParseError} Source content cannot be normalized.
 // @deprecated Use Parse instead.
@@ -104,10 +104,10 @@ func NeverRegistered(context.Context) (runtime.Value, error) { return nil, nil }
 		if strings.Contains(signature.Description, "@param") || strings.Contains(signature.Description, "Deprecated:") {
 			t.Fatalf("description contains structured metadata: %q", signature.Description)
 		}
-		if got, want := signature.Parameters, []api.Parameter{{Name: "input", Type: "String|Binary", Description: "Source content."}}; !reflect.DeepEqual(got, want) {
+		if got, want := signature.Parameters, []api.Parameter{{Name: "input", Type: unionType("String", "Binary"), Description: "Source content."}}; !reflect.DeepEqual(got, want) {
 			t.Fatalf("documented parameters = %#v, want %#v", got, want)
 		}
-		if signature.Return == nil || signature.Return.Type != "Object" || signature.Return.Description != "Parsed content." {
+		if signature.Return == nil || !reflect.DeepEqual(signature.Return.Type, listType(namedType("Object"))) || signature.Return.Description != "Parsed content." {
 			t.Fatalf("return = %#v", signature.Return)
 		}
 		if got, want := signature.Throws, []api.Throw{
@@ -143,12 +143,17 @@ func (*mod) Register(bootstrap module.Bootstrap) error {
 	ns.Function().Var().Add("GENERATE", Generate)
 	return nil
 }
-func Model(context.Context, runtime.Value, runtime.Value) (runtime.Value, error) { return nil, nil }
+func Model(_ context.Context, value, _ runtime.Value) (runtime.Value, error) {
+	switch value.(type) {
+	case interface{ String() string }:
+	}
+	return nil, nil
+}
 func Session(_ context.Context, model, options runtime.Value) (runtime.Value, error) { return model, nil }
 // Generate produces model output.
 // @param prompt {String} Model prompt.
-// @param options {Object?} Generation options.
-// @return {String} Generated text.
+// @param options {[Object? | [Binary]]} Generation options.
+// @return {Iterator<T>} Generated text.
 func Generate(_ context.Context, args ...runtime.Value) (runtime.Value, error) { return nil, nil }
 `,
 	})
@@ -167,12 +172,15 @@ func Generate(_ context.Context, args ...runtime.Value) (runtime.Value, error) {
 		t.Fatal("GENERATE signature is not variadic")
 	}
 	if got, want := reference.Namespaces[0].Functions[0].Signatures[0].Parameters, []api.Parameter{
-		{Name: "prompt", Type: "String", Description: "Model prompt."},
-		{Name: "options", Type: "Object?", Description: "Generation options."},
+		{Name: "prompt", Type: namedType("String"), Description: "Model prompt."},
+		{Name: "options", Type: listType(&api.Type{Kind: api.TypeKindUnion, Types: []api.Type{{Kind: api.TypeKindNamed, Name: "Object?"}, {Kind: api.TypeKindList, Element: namedType("Binary")}}}), Description: "Generation options."},
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("GENERATE parameters = %#v, want %#v", got, want)
 	}
-	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []api.Parameter{{Name: "arg1"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
+	if got := reference.Namespaces[0].Functions[0].Signatures[0].Return.Type; !reflect.DeepEqual(got, namedType("Iterator<T>")) {
+		t.Fatalf("GENERATE return type = %#v, want legacy named generic", got)
+	}
+	if got, want := reference.Namespaces[0].Functions[1].Signatures[0].Parameters, []api.Parameter{{Name: "value"}, {Name: "arg2"}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("MODEL parameters = %#v, want %#v", got, want)
 	}
 }
@@ -195,7 +203,7 @@ func New() module.Module {
 }
 
 // Decode decodes content.
-// @param {String} data
+// @param data {String |} Source content.
 func Decode(_ context.Context, args ...runtime.Value) (runtime.Value, error) { return nil, nil }
 `,
 	})
@@ -214,11 +222,28 @@ func Decode(_ context.Context, args ...runtime.Value) (runtime.Value, error) { r
 		t.Fatalf("position = %s, want module/module.go:17", analysisError.Position)
 	}
 
-	for _, value := range []string{"Decode", `@param {String} data`, "expected"} {
+	for _, value := range []string{"Decode", `@param data {String |} Source content.`, "union member"} {
 		if !strings.Contains(analysisError.Error(), value) {
 			t.Fatalf("diagnostic %q does not contain %q", analysisError, value)
 		}
 	}
+}
+
+func namedType(name string) *api.Type {
+	return &api.Type{Kind: api.TypeKindNamed, Name: name}
+}
+
+func unionType(names ...string) *api.Type {
+	members := make([]api.Type, 0, len(names))
+	for _, name := range names {
+		members = append(members, api.Type{Kind: api.TypeKindNamed, Name: name})
+	}
+
+	return &api.Type{Kind: api.TypeKindUnion, Types: members}
+}
+
+func listType(element *api.Type) *api.Type {
+	return &api.Type{Kind: api.TypeKindList, Element: element}
 }
 
 func TestAnalyzerRejectsFixedArityDocumentationMismatch(t *testing.T) {
@@ -256,6 +281,18 @@ func Pair(_ context.Context, left, right runtime.Value) (runtime.Value, error) {
 
 	if analysisError.Position.Filename != "module/module.go" || analysisError.Position.Line != 17 {
 		t.Fatalf("position = %s, want module/module.go:17", analysisError.Position)
+	}
+}
+
+func TestResultBuilderKeepsTypesOutOfSignatureIdentity(t *testing.T) {
+	builder := &resultBuilder{namespaces: make(map[string]map[string]map[string]signatureRecord)}
+	if err := builder.add("", "CONVERT", signatureRecord{parameters: []api.Parameter{{Name: "value", Type: namedType("String"), Description: "Input."}}}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := builder.add("", "CONVERT", signatureRecord{parameters: []api.Parameter{{Name: "value", Type: namedType("Object"), Description: "Input."}}})
+	if err == nil || !strings.Contains(err.Error(), "ambiguous 1 registrations") {
+		t.Fatalf("same-arity registration error = %v, want arity-based ambiguity", err)
 	}
 }
 

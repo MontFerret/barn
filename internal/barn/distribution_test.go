@@ -172,9 +172,9 @@ func TestCanonicalRegistryLayoutGeneratesDistribution(t *testing.T) {
 	var apiReference api.Reference
 	decodeDistributionJSON(t, distribution, "modules/montferret/archive/versions/1.2.0/api.json", &apiReference)
 	wantSignature := api.Signature{
-		Parameters:  []api.Parameter{{Name: "data", Type: "String|Binary", Description: "Source content."}},
+		Parameters:  []api.Parameter{{Name: "data", Type: testUnionType("String", "Binary"), Description: "Source content."}},
 		Description: "Run processes source content.",
-		Return:      &api.Return{Type: "Object", Description: "Processed content."},
+		Return:      &api.Return{Type: testNamedType("Object"), Description: "Processed content."},
 		Throws:      []api.Throw{{Error: "ParseError", Description: "Source content is malformed."}},
 		Deprecated:  "Use PARSE instead.",
 	}

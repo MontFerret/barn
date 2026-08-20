@@ -109,7 +109,7 @@ Reference.
 
 Named registered declarations may provide structured Ferret-facing metadata
 using the canonical [Ferret API Documentation v1
-contract](https://github.com/MontFerret/specs/blob/v1.8.0/docs/api-documentation-v1.md).
+contract](https://github.com/MontFerret/specs/blob/v1.12.0/docs/api-documentation-v1.md).
 Barn normalizes Go line and block documentation, delegates the reusable grammar
 and metadata validation to `github.com/MontFerret/specs/pkg/api`, and maps a
 typed documentation error back to the declaration's exact source position.
@@ -122,6 +122,10 @@ signature. An authored parameter list replaces that fallback and must match a
 fixed Ferret arity; variadic registrations may describe multiple logical
 Ferret parameters. Malformed registered documentation or an arity mismatch
 fails analysis and publication preparation without a partial API artifact.
+Documented parameter and return types flow directly into Specs' recursive
+`named`, `union`, and `list` model. Barn never infers semantic types from Go
+signatures, type assertions, or function bodies. Type metadata does not create
+overloads: signature identity remains fixed arity or variadic registration.
 
 Generated documents continue to use the closed API Reference v1 wire contract,
 `schemaVersion: 1`, and its existing schema ID. The canonical model, strict JSON

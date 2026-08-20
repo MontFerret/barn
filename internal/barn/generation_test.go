@@ -123,6 +123,33 @@ func TestBuildDistributionAutoUsesFullModeForNonRegistryChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	legacyAPI := `{
+  "schemaVersion": 1,
+  "id": "acme/archive",
+  "version": "1.0.0",
+  "namespaces": [
+    {
+      "name": "ARCHIVE",
+      "functions": [
+        {
+          "name": "READ",
+          "signatures": [
+            {
+              "parameters": [],
+              "return": {"type": "String", "description": "Content."}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+`
+	legacyAPIPath := filepath.Join(previous, "modules", "acme", "archive", "versions", "1.0.0", "api.json")
+	if err := os.WriteFile(legacyAPIPath, []byte(legacyAPI), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("generator documentation\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -142,6 +169,17 @@ func TestBuildDistributionAutoUsesFullModeForNonRegistryChanges(t *testing.T) {
 
 	if result.Mode != GenerationModeFull || !reflect.DeepEqual(inspector.calls, []string{"acme/archive@1.0.0"}) {
 		t.Fatalf("auto generation did not perform a full rebuild: mode=%s calls=%v", result.Mode, inspector.calls)
+	}
+
+	_, err = BuildDistribution(context.Background(), GenerationOptions{
+		Root:         root,
+		Previous:     previous,
+		SourceCommit: target,
+		Mode:         GenerationModeIncremental,
+		Inspector:    &recordingInspector{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "non-Registry change README.md") {
+		t.Fatalf("incremental generation error = %v, want immediate non-Registry rejection", err)
 	}
 }
 
