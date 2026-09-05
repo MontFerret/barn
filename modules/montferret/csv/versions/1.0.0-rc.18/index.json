@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/csv",
+  "version": "1.0.0-rc.18",
+  "description": "CSV decoding, encoding, and streaming helpers under CSV for Ferret.",
+  "namespace": "CSV",
+  "ferret": "\u003e=2.0.0-alpha.43 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/csv",
+    "commit": "702d69bb3e4c839f2cb5ba7e4cfd0d2a2e423403"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/csv"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

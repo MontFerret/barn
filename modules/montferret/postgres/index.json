@@ -6,6 +6,11 @@
   "description": "Postgres database handles under DB::POSTGRES for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.11",
+      "publishedAt": "2026-09-05T13:34:06Z",
+      "href": "/modules/montferret/postgres/versions/1.0.0-rc.11/index.json"
+    },
+    {
       "version": "1.0.0-rc.10",
       "publishedAt": "2026-08-10T23:54:44Z",
       "href": "/modules/montferret/postgres/versions/1.0.0-rc.10/index.json"

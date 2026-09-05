@@ -6,6 +6,11 @@
   "description": "CSV decoding, encoding, and streaming helpers under CSV for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.18",
+      "publishedAt": "2026-09-05T13:32:52Z",
+      "href": "/modules/montferret/csv/versions/1.0.0-rc.18/index.json"
+    },
+    {
       "version": "1.0.0-rc.17",
       "publishedAt": "2026-08-10T23:54:44Z",
       "href": "/modules/montferret/csv/versions/1.0.0-rc.17/index.json"

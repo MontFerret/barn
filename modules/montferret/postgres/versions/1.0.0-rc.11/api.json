@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/postgres",
+  "version": "1.0.0-rc.11",
+  "namespaces": [
+    {
+      "name": "DB::POSTGRES",
+      "functions": [
+        {
+          "name": "BEGIN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "database",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresDatabase"
+                  },
+                  "description": "Database handle."
+                }
+              ],
+              "description": "Begin starts a Postgres transaction and returns a transaction handle.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "PostgresTransaction"
+                },
+                "description": "Open transaction handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLOSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "database",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresDatabase"
+                  },
+                  "description": "Database handle to close."
+                }
+              ],
+              "description": "Close closes a Postgres database handle. Closing an already closed database\nis idempotent.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
+                "description": "True when the handle is closed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "COMMIT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "transaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresTransaction"
+                  },
+                  "description": "Transaction to commit."
+                }
+              ],
+              "description": "Commit commits a Postgres transaction handle.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
+                "description": "True when the transaction is committed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Postgres connection options."
+                }
+              ],
+              "description": "Open creates a Postgres database handle from connection options.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "PostgresDatabase"
+                },
+                "description": "Open database handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ROLLBACK",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "transaction",
+                  "type": {
+                    "kind": "named",
+                    "name": "PostgresTransaction"
+                  },
+                  "description": "Transaction to roll back."
+                }
+              ],
+              "description": "Rollback rolls back a Postgres transaction handle.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
+                "description": "True when the transaction is rolled back."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/archive",
+  "version": "1.0.0-rc.5",
+  "namespaces": [
+    {
+      "name": "ARCHIVE",
+      "functions": [
+        {
+          "name": "EXTRACT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "source",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Sandboxed archive path."
+                },
+                {
+                  "name": "destination",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Sandboxed destination directory."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Extraction and filtering options."
+                }
+              ],
+              "variadic": true,
+              "description": "Extract writes eligible archive entries through the configured filesystem.\n\nArchive paths and destinations are constrained by the host's Ferret\nfilesystem policy.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
+                "description": "Extraction results for eligible entries."
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIST",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "source",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Sandboxed archive path."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Archive format options."
+                }
+              ],
+              "variadic": true,
+              "description": "List returns metadata for every entry in an archive.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cObject\u003e"
+                },
+                "description": "Archive entry metadata."
+              }
+            }
+          ]
+        },
+        {
+          "name": "READ",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "source",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Sandboxed archive path."
+                },
+                {
+                  "name": "name",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Archive entry name."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Format, output, and missing-entry options."
+                }
+              ],
+              "variadic": true,
+              "description": "Read reads the first matching regular file from an archive.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "Binary"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Entry content, or None when configured for a missing entry."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

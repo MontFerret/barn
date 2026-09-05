@@ -1,0 +1,197 @@
+<h1 id="dbpostgres-module">DB::POSTGRES Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/db/postgres</code> registers Postgres lifecycle helpers under the <code>DB::POSTGRES</code> namespace for Ferret hosts.</p>
+<p>The namespace exposes only lifecycle functions:</p>
+<ul>
+<li><code>DB::POSTGRES::OPEN</code></li>
+<li><code>DB::POSTGRES::CLOSE</code></li>
+<li><code>DB::POSTGRES::BEGIN</code></li>
+<li><code>DB::POSTGRES::COMMIT</code></li>
+<li><code>DB::POSTGRES::ROLLBACK</code></li>
+</ul>
+<p>Database and transaction handles are opaque host values that support:</p>
+<ul>
+<li><code>Queryable</code></li>
+<li>runtime cleanup through <code>Close</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/db/postgres
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	postgresmodule &#34;github.com/MontFerret/contrib/modules/db/postgres&#34;
+)
+
+func main() {
+	engine, err := ferret.New(
+		ferret.WithModules(postgresmodule.New()),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB::POSTGRES::OPEN</code></td>
+<td><code>OPEN(options)</code></td>
+<td>Postgres DB handle</td>
+<td>Opens a database from a connection URI or structured connection fields.</td>
+</tr>
+<tr>
+<td><code>DB::POSTGRES::CLOSE</code></td>
+<td><code>CLOSE(db)</code></td>
+<td><code>Boolean</code></td>
+<td>Closes a DB handle. Repeated close is idempotent.</td>
+</tr>
+<tr>
+<td><code>DB::POSTGRES::BEGIN</code></td>
+<td><code>BEGIN(db)</code></td>
+<td>Postgres transaction handle</td>
+<td>Starts an explicit transaction.</td>
+</tr>
+<tr>
+<td><code>DB::POSTGRES::COMMIT</code></td>
+<td><code>COMMIT(tx)</code></td>
+<td><code>Boolean</code></td>
+<td>Commits a transaction and finishes the handle.</td>
+</tr>
+<tr>
+<td><code>DB::POSTGRES::ROLLBACK</code></td>
+<td><code>ROLLBACK(tx)</code></td>
+<td><code>Boolean</code></td>
+<td>Rolls back a transaction and finishes the handle.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="opening-databases">Opening Databases</h2>
+<p>Exactly one connection source must be provided.</p>
+<p>Use <code>uri</code> for a Postgres URL or pgx-compatible connection string:</p>
+<pre><code class="language-fql">LET db = DB::POSTGRES::OPEN({
+  uri: &#34;postgres://ferret:secret@localhost:5432/ferret?sslmode=disable&#34;
+})
+</code></pre>
+<p>Or use structured fields:</p>
+<pre><code class="language-fql">LET db = DB::POSTGRES::OPEN({
+  host: &#34;localhost&#34;,
+  port: 5432,
+  database: &#34;ferret&#34;,
+  user: &#34;ferret&#34;,
+  password: &#34;secret&#34;,
+  sslMode: &#34;disable&#34;
+})
+</code></pre>
+<p>For structured options, <code>host</code>, <code>database</code>, and <code>user</code> are required. <code>port</code> defaults to <code>5432</code>. <code>password</code> and <code>sslMode</code> are optional.</p>
+<h2 id="querying">Querying</h2>
+<p>Use <code>QUERY</code> when SQL returns rows.</p>
+<pre><code class="language-fql">LET rows = QUERY `
+  SELECT id, name
+  FROM users
+` IN db USING sql
+</code></pre>
+<p>Parameterized queries use Postgres <code>$1</code>, <code>$2</code>, and later placeholders:</p>
+<pre><code class="language-fql">LET rows = QUERY `
+  SELECT id, name
+  FROM users
+  WHERE id = $1
+` IN db USING sql WITH {
+  params: [1]
+}
+</code></pre>
+<p><code>QUERY ONE</code>, <code>QUERY EXISTS</code>, and <code>QUERY COUNT</code> are supported. <code>QUERY COUNT</code> counts rows produced by the caller&#39;s SQL; it does not rewrite the query.</p>
+<h2 id="executing-commands">Executing Commands</h2>
+<p>Use <code>QUERY ONE ... USING sql_exec</code> when SQL should execute as a command and return execution metadata. The <code>sql_exec</code> dialect always uses Postgres&#39; exec path and does not scan rows, even if the SQL includes <code>RETURNING</code>.</p>
+<pre><code class="language-fql">LET result = QUERY ONE `
+  UPDATE users
+  SET name = $1
+  WHERE id = $2
+` IN db USING sql_exec WITH {
+  params: [&#34;Ada&#34;, 1]
+}
+
+RETURN result
+</code></pre>
+<p>Result shape:</p>
+<pre><code class="language-json">{
+  &#34;rowsAffected&#34;: 1,
+  &#34;lastInsertId&#34;: null
+}
+</code></pre>
+<p>Postgres does not expose a portable <code>LastInsertId</code> through <code>database/sql</code>, so <code>lastInsertId</code> is always <code>NONE</code>. Use <code>RETURNING</code> with <code>USING sql</code> when generated values are needed:</p>
+<pre><code class="language-fql">LET rows = QUERY `
+  INSERT INTO users(name)
+  VALUES ($1)
+  RETURNING id
+` IN db USING sql WITH {
+  params: [&#34;Ada&#34;]
+}
+</code></pre>
+<p>The base <code>QUERY</code> form returns the same metadata object in a single-item array. <code>QUERY COUNT ... USING sql_exec</code> returns <code>1</code> after a successful execution, and <code>QUERY EXISTS ... USING sql_exec</code> returns <code>true</code>.</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-fql">USE DB::POSTGRES AS postgres
+
+LET db = postgres::OPEN({
+  uri: &#34;postgres://ferret:secret@localhost:5432/ferret?sslmode=disable&#34;
+})
+
+LET create = QUERY ONE `
+  CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+  )
+` IN db USING sql_exec
+
+LET inserted = QUERY ONE `
+  INSERT INTO users(name)
+  VALUES ($1)
+  RETURNING id, name
+` IN db USING sql WITH {
+  params: [&#34;Ada&#34;]
+}
+
+RETURN inserted
+</code></pre>
+<h2 id="transactions">Transactions</h2>
+<pre><code class="language-fql">LET db = DB::POSTGRES::OPEN({ uri: &#34;postgres://ferret:secret@localhost:5432/ferret?sslmode=disable&#34; })
+LET tx = DB::POSTGRES::BEGIN(db)
+
+LET insert = QUERY ONE `
+  INSERT INTO users(name)
+  VALUES ($1)
+` IN tx USING sql_exec WITH {
+  params: [&#34;Ada&#34;]
+}
+
+DB::POSTGRES::COMMIT(tx)
+</code></pre>
+<p>Active transactions roll back during cleanup if they are not committed or rolled back explicitly. Using a finished transaction returns a runtime error.</p>
+<h2 id="integration-testing">Integration Testing</h2>
+<p>Module unit tests do not require a running Postgres server. Live integration tests run only when <code>POSTGRES_DSN</code> is set:</p>
+<pre><code class="language-sh">POSTGRES_DSN=&#39;postgres://ferret:secret@localhost:5432/ferret?sslmode=disable&#39; \
+  go test ./...
+</code></pre>
+<p>GitHub Actions runs the same live test path with a Postgres service container in <code>.github/workflows/integration.yml</code>.</p>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li>SQL is never rewritten and <code>LIMIT</code> is never appended automatically.</li>
+<li>SQL <code>NULL</code> maps to Ferret <code>NONE</code>.</li>
+<li>Postgres integer, float, string, boolean, binary, and timestamp driver values map to Ferret <code>Int</code>, <code>Float</code>, <code>String</code>, <code>Boolean</code>, <code>Binary</code>, and <code>DateTime</code>.</li>
+<li>Ferret <code>DateTime</code> values can be used as query parameters.</li>
+<li>Handles are opaque host resources and serialize as debug strings such as <code>&lt;db.postgres.connection&gt;</code>.</li>
+<li>Errors include <code>DB::POSTGRES</code>, the operation, and the underlying Postgres or validation cause.</li>
+</ul>
