@@ -2,5 +2,6 @@
   "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
   "version": "1.0.0-rc.4",
   "tag": "modules/db/redis/v1.0.0-rc.4",
-  "commit": "702d69bb3e4c839f2cb5ba7e4cfd0d2a2e423403"
+  "commit": "702d69bb3e4c839f2cb5ba7e4cfd0d2a2e423403",
+  "publishedAt": "2026-09-06T01:48:51Z"
 }
