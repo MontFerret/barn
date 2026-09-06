@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/rest",
+  "version": "1.0.0-rc.13",
+  "namespaces": [
+    {
+      "name": "NET::REST",
+      "functions": [
+        {
+          "name": "CLIENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "config",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Client defaults and base URL."
+                }
+              ],
+              "description": "Client creates a reusable HTTP API client from a configuration object.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "RESTClient"
+                },
+                "description": "Reusable queryable HTTP client."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

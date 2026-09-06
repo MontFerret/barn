@@ -6,6 +6,11 @@
   "description": "REST-style HTTP API clients under NET::REST for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.13",
+      "publishedAt": "2026-09-06T01:59:05Z",
+      "href": "/modules/montferret/rest/versions/1.0.0-rc.13/index.json"
+    },
+    {
       "version": "1.0.0-rc.12",
       "publishedAt": "2026-08-10T23:54:44Z",
       "href": "/modules/montferret/rest/versions/1.0.0-rc.12/index.json"

@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/article",
+  "version": "1.0.0-rc.17",
+  "namespaces": [
+    {
+      "name": "WEB::ARTICLE",
+      "functions": [
+        {
+          "name": "EXTRACT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Extract returns normalized article content and metadata for the provided HTML.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
+                "description": "Normalized article content and metadata."
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARKDOWN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Markdown returns only the cleaned article Markdown.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Cleaned article Markdown or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "TEXT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "input",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLPage"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLDocument"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "HTMLElement"
+                      }
+                    ]
+                  },
+                  "description": "HTML content or node."
+                }
+              ],
+              "variadic": true,
+              "description": "Text returns only the cleaned article text.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Cleaned article text or None."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

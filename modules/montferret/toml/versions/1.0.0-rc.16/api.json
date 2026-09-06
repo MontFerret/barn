@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/toml",
+  "version": "1.0.0-rc.16",
+  "namespaces": [
+    {
+      "name": "TOML",
+      "functions": [
+        {
+          "name": "DECODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "data",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "String"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Binary"
+                      }
+                    ]
+                  },
+                  "description": "TOML content."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Decoding options."
+                }
+              ],
+              "variadic": true,
+              "description": "Decode decodes a TOML document into an object.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
+                "description": "Decoded TOML object."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ENCODE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "value",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Object to encode."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Encoding options."
+                }
+              ],
+              "variadic": true,
+              "description": "Encode serializes an object into TOML text.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
+                "description": "TOML text."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

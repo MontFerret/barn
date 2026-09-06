@@ -1,0 +1,495 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/oauth2",
+  "version": "1.0.0-rc.5",
+  "namespaces": [
+    {
+      "name": "SECURITY::OAUTH2",
+      "functions": [
+        {
+          "name": "ACCESS_TOKEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "AccessToken intentionally returns the raw access token.\n\nThe returned secret is no longer protected by the token handle's redacted\nformatting and serialization.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
+                "description": "Raw access token."
+              }
+            }
+          ]
+        },
+        {
+          "name": "AUTH_HEADER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Bearer token set."
+                }
+              ],
+              "variadic": true,
+              "description": "AuthHeader intentionally materializes a Bearer Authorization header.\n\nThe returned object contains the raw access token and should be passed\ndirectly to an HTTP client rather than logged or serialized.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Object"
+                },
+                "description": "Authorization header object."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLIENT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "provider",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthProvider"
+                  },
+                  "description": "Provider handle."
+                },
+                {
+                  "name": "config",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Client credentials and authentication method."
+                }
+              ],
+              "variadic": true,
+              "description": "Client constructs an OAuth client for a provider.\n\nClient secrets remain hidden from formatting and serialization.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthClient"
+                },
+                "description": "Configured client handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLIENT_CREDENTIALS",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "client",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthClient"
+                  },
+                  "description": "OAuth client handle."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Scope, audience, parameters, and timeout."
+                }
+              ],
+              "variadic": true,
+              "description": "ClientCredentials performs an OAuth client_credentials grant.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthToken"
+                },
+                "description": "Acquired token set."
+              }
+            }
+          ]
+        },
+        {
+          "name": "DISCOVER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "issuer",
+                  "type": {
+                    "kind": "named",
+                    "name": "String"
+                  },
+                  "description": "Authorization-server issuer URL."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Discovery timeout and URL-policy options."
+                }
+              ],
+              "variadic": true,
+              "description": "Discover loads OAuth authorization-server metadata for an issuer.\n\nDiscovery uses the policy-aware HTTP client from the Ferret execution\ncontext and requires HTTPS unless explicitly configured otherwise.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthProvider"
+                },
+                "description": "Discovered provider metadata."
+              }
+            }
+          ]
+        },
+        {
+          "name": "EXPIRED",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                },
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object?"
+                  },
+                  "description": "Expiration safety-skew options."
+                }
+              ],
+              "variadic": true,
+              "description": "Expired reports whether a token is expired with an optional safety skew.\n\nTokens with unknown expiration are not considered expired.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
+                "description": "Whether the token is expired."
+              }
+            }
+          ]
+        },
+        {
+          "name": "EXPIRES_AT",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "ExpiresAt returns the token expiration timestamp when known.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "DateTime"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Expiration timestamp or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "ID_TOKEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "IDToken intentionally returns the raw ID token when present.\n\nThe token is returned without parsing or validation and is no longer\nprotected by the token handle's redacted formatting and serialization.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Raw ID token or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "PROVIDER",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "config",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Provider endpoints and metadata."
+                }
+              ],
+              "variadic": true,
+              "description": "Provider constructs a manually configured OAuth provider.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthProvider"
+                },
+                "description": "Configured provider handle."
+              }
+            }
+          ]
+        },
+        {
+          "name": "REFRESH",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "client",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthClient"
+                  },
+                  "description": "OAuth client handle."
+                },
+                {
+                  "name": "tokenOrOptions",
+                  "type": {
+                    "kind": "union",
+                    "types": [
+                      {
+                        "kind": "named",
+                        "name": "OAuthToken"
+                      },
+                      {
+                        "kind": "named",
+                        "name": "Object"
+                      }
+                    ]
+                  },
+                  "description": "Existing token set or refresh-token options."
+                }
+              ],
+              "variadic": true,
+              "description": "Refresh performs an OAuth refresh_token grant.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthToken"
+                },
+                "description": "Refreshed token set."
+              }
+            }
+          ]
+        },
+        {
+          "name": "REFRESH_TOKEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "RefreshToken intentionally returns the raw refresh token when present.\n\nThe returned secret is no longer protected by the token handle's redacted\nformatting and serialization.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "String"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Raw refresh token or None."
+              }
+            }
+          ]
+        },
+        {
+          "name": "SCOPES",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "Scopes returns token scopes split on ASCII spaces.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Array\u003cString\u003e"
+                },
+                "description": "Token scopes."
+              }
+            }
+          ]
+        },
+        {
+          "name": "TOKEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "client",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthClient"
+                  },
+                  "description": "OAuth client handle."
+                },
+                {
+                  "name": "parameters",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Extension-grant parameters."
+                }
+              ],
+              "variadic": true,
+              "description": "Token performs an OAuth extension grant.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "OAuthToken"
+                },
+                "description": "Acquired token set."
+              }
+            }
+          ]
+        },
+        {
+          "name": "TOKEN_TYPE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "TokenType returns the provider-supplied token type.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "String"
+                },
+                "description": "Provider-supplied token type."
+              }
+            }
+          ]
+        },
+        {
+          "name": "VALID_FOR",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "token",
+                  "type": {
+                    "kind": "named",
+                    "name": "OAuthToken"
+                  },
+                  "description": "Token set."
+                }
+              ],
+              "variadic": true,
+              "description": "ValidFor returns remaining token lifetime in rounded-up milliseconds.",
+              "return": {
+                "type": {
+                  "kind": "union",
+                  "types": [
+                    {
+                      "kind": "named",
+                      "name": "Int"
+                    },
+                    {
+                      "kind": "named",
+                      "name": "None"
+                    }
+                  ]
+                },
+                "description": "Remaining milliseconds or None when expiration is unknown."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
