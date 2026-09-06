@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/redis",
+  "version": "1.0.0-rc.4",
+  "namespaces": [
+    {
+      "name": "DB::REDIS",
+      "functions": [
+        {
+          "name": "CLOSE",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "connection",
+                  "type": {
+                    "kind": "named",
+                    "name": "RedisConnection"
+                  },
+                  "description": "Connection handle to close."
+                }
+              ],
+              "description": "Close closes a Redis connection handle. Closing an already closed connection is idempotent.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "Boolean"
+                },
+                "description": "True when the handle is closed."
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN",
+          "signatures": [
+            {
+              "parameters": [
+                {
+                  "name": "options",
+                  "type": {
+                    "kind": "named",
+                    "name": "Object"
+                  },
+                  "description": "Redis connection options."
+                }
+              ],
+              "description": "Open creates a Redis connection handle from connection options.",
+              "return": {
+                "type": {
+                  "kind": "named",
+                  "name": "RedisConnection"
+                },
+                "description": "Open connection handle."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

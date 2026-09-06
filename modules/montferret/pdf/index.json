@@ -6,6 +6,11 @@
   "description": "Read-only PDF document handles under DOCUMENT::PDF for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.10",
+      "publishedAt": "2026-09-06T01:49:23Z",
+      "href": "/modules/montferret/pdf/versions/1.0.0-rc.10/index.json"
+    },
+    {
       "version": "1.0.0-rc.9",
       "publishedAt": "2026-08-10T23:54:44Z",
       "href": "/modules/montferret/pdf/versions/1.0.0-rc.9/index.json"
