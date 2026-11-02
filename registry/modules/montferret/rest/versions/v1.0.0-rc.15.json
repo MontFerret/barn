@@ -1,0 +1,6 @@
+{
+  "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
+  "version": "1.0.0-rc.15",
+  "tag": "modules/net/rest/v1.0.0-rc.15",
+  "commit": "136044bb4afc780429bf5471185f76380e88cb97"
+}
