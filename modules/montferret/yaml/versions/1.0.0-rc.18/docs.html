@@ -1,0 +1,140 @@
+<h1 id="yaml-module">YAML Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/yaml</code> registers YAML helpers under the <code>YAML</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>YAML::DECODE</code></li>
+<li><code>YAML::DECODE_ALL</code></li>
+<li><code>YAML::ENCODE</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/yaml
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	yamlmodule &#34;github.com/MontFerret/contrib/modules/yaml&#34;
+)
+
+func main() {
+	yamlMod, err := yamlmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(yamlMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>YAML::DECODE</code></td>
+<td><code>YAML::DECODE(data)</code></td>
+<td><code>Any</code></td>
+<td>Decodes exactly one YAML document. Rejects streams with multiple documents.</td>
+</tr>
+<tr>
+<td><code>YAML::DECODE_ALL</code></td>
+<td><code>YAML::DECODE_ALL(data)</code></td>
+<td><code>Any[]</code></td>
+<td>Decodes all YAML documents from a YAML stream in order.</td>
+</tr>
+<tr>
+<td><code>YAML::ENCODE</code></td>
+<td><code>YAML::ENCODE(value)</code></td>
+<td><code>String</code></td>
+<td>Encodes a supported Ferret runtime value into YAML text.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="type-mapping">Type Mapping</h2>
+<p>Decoded YAML values map to Ferret runtime values as follows:</p>
+<table>
+<thead>
+<tr>
+<th>YAML</th>
+<th>Ferret</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mapping</td>
+<td><code>Object</code></td>
+</tr>
+<tr>
+<td>sequence</td>
+<td><code>Array</code></td>
+</tr>
+<tr>
+<td>string</td>
+<td><code>String</code></td>
+</tr>
+<tr>
+<td>integer</td>
+<td><code>Int</code></td>
+</tr>
+<tr>
+<td>float</td>
+<td><code>Float</code></td>
+</tr>
+<tr>
+<td>boolean</td>
+<td><code>Boolean</code></td>
+</tr>
+<tr>
+<td>null</td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples</h2>
+<h3 id="decode-a-single-document">Decode A Single Document</h3>
+<pre><code class="language-fql">RETURN YAML::DECODE(&#34;
+name: Alice
+age: 30
+active: true
+&#34;)
+</code></pre>
+<h3 id="decode-a-multi-document-stream">Decode A Multi-Document Stream</h3>
+<pre><code class="language-fql">RETURN YAML::DECODE_ALL(&#34;
+---
+name: Alice
+---
+- 1
+- 2
+&#34;)
+</code></pre>
+<h3 id="encode-a-value">Encode A Value</h3>
+<pre><code class="language-fql">RETURN YAML::ENCODE({
+  name: &#34;Alice&#34;,
+  age: 30,
+  tags: [&#34;yaml&#34;, &#34;ferret&#34;]
+})
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>YAML::DECODE</code> and <code>YAML::DECODE_ALL</code> accept both string and binary YAML input.</li>
+<li>Empty input is rejected by both decode functions.</li>
+<li><code>YAML::DECODE</code> rejects YAML streams that contain more than one document.</li>
+<li>Anchors, aliases, and merge keys are accepted only when they resolve to ordinary data values.</li>
+<li><code>YAML::ENCODE</code> supports only plain data values; unsupported runtime types such as binary, datetime, and iterator-like values return an error.</li>
+<li>Output formatting is implementation-defined in v1.</li>
+</ul>

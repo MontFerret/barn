@@ -1,0 +1,232 @@
+<h1 id="rest">REST</h1>
+<p>The REST module provides reusable clients for REST-style and endpoint-oriented HTTP APIs under the <code>NET::REST</code> namespace.</p>
+<p>Create a client once with a base URL, default headers, encodings, and request behavior. Then query API resources through Ferret <code>QUERY</code> expressions.</p>
+<pre><code class="language-fql">LET api = NET::REST::CLIENT({
+    baseUrl: &#34;https://api.example.com&#34;,
+    headers: {
+        Authorization: &#34;Bearer &#34; + @token
+    },
+    encoding: &#34;json&#34;
+})
+
+RETURN QUERY &#34;/users&#34; IN api WITH {
+    query: {
+        active: true,
+        limit: 50
+    }
+} OPTIONS {
+    timeout: 5000
+}
+</code></pre>
+<p>The query string identifies the resource path. Request data is passed through <code>WITH</code>, and execution options are passed through <code>OPTIONS</code>.</p>
+<h2 id="querying-resources">Querying Resources</h2>
+<p>A simple query sends a <code>GET</code> request to the given path:</p>
+<pre><code class="language-fql">LET api = NET::REST::CLIENT({
+    baseUrl: &#34;https://api.example.com&#34;,
+    encoding: &#34;json&#34;
+})
+
+RETURN QUERY &#34;/users&#34; IN api
+</code></pre>
+<p><code>WITH</code> carries request data such as query parameters, request bodies, methods, and per-request headers:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api WITH {
+    query: {
+        active: true,
+        limit: 50
+    }
+}
+</code></pre>
+<p>To send a request body, provide a method and body:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api WITH {
+    method: &#34;POST&#34;,
+    body: {
+        name: &#34;Ada&#34;,
+        email: &#34;ada@example.com&#34;
+    }
+}
+</code></pre>
+<p>Per-request headers can also be provided through <code>WITH</code>:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api WITH {
+    headers: {
+        &#34;X-Request-ID&#34;: @requestId
+    }
+}
+</code></pre>
+<p>Request headers are merged with the client’s default headers. Per-request headers override default headers with the same name.</p>
+<h2 id="request-options">Request Options</h2>
+<p><code>OPTIONS</code> controls request execution and response handling:</p>
+<pre><code class="language-fql">RETURN QUERY ONE &#34;/users/1&#34; IN api OPTIONS {
+    response: &#34;full&#34;,
+    timeout: 3000,
+    responseEncoding: &#34;json&#34;
+}
+</code></pre>
+<p>Use <code>WITH</code> for request data. Use <code>OPTIONS</code> for execution behavior.</p>
+<p>For example:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api WITH {
+    query: {
+        active: true,
+        limit: 50
+    }
+} OPTIONS {
+    timeout: 5000
+}
+</code></pre>
+<h2 id="query-results">Query Results</h2>
+<p>Plain <code>QUERY</code> follows Ferret’s list query contract.</p>
+<p>If a response body decodes to an array, the array items are returned as query results. If a response body decodes to an object, scalar, or binary value, it is returned as a single query result.</p>
+<p>Use <code>QUERY ONE</code> when the endpoint represents a single response body:</p>
+<pre><code class="language-fql">RETURN QUERY ONE &#34;/users/1&#34; IN api
+</code></pre>
+<h2 id="client-configuration">Client Configuration</h2>
+<p><code>NET::REST::CLIENT(config)</code> accepts:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>baseUrl</code></td>
+<td>Required absolute base URL.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>Default request headers.</td>
+</tr>
+<tr>
+<td><code>encoding</code></td>
+<td>Sets both request and response encodings.</td>
+</tr>
+<tr>
+<td><code>requestEncoding</code></td>
+<td>Default request body encoding.</td>
+</tr>
+<tr>
+<td><code>responseEncoding</code></td>
+<td>Default response body encoding.</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>Default request timeout in milliseconds.</td>
+</tr>
+<tr>
+<td><code>response</code></td>
+<td>Default response mode: <code>&#34;body&#34;</code> or <code>&#34;full&#34;</code>.</td>
+</tr>
+<tr>
+<td><code>errorMode</code></td>
+<td>Default error mode: <code>&#34;raise&#34;</code> or <code>&#34;response&#34;</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Supported encodings are:</p>
+<table>
+<thead>
+<tr>
+<th>Encoding</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&#34;json&#34;</code></td>
+<td>Encodes and decodes JSON values.</td>
+</tr>
+<tr>
+<td><code>&#34;text&#34;</code></td>
+<td>Sends and returns plain text.</td>
+</tr>
+<tr>
+<td><code>&#34;bytes&#34;</code></td>
+<td>Sends and returns raw binary data.</td>
+</tr>
+<tr>
+<td><code>&#34;form&#34;</code></td>
+<td>Encodes request bodies as form data.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="response-modes">Response Modes</h2>
+<p>The default response mode is <code>&#34;body&#34;</code>.</p>
+<pre><code class="language-fql">RETURN QUERY ONE &#34;/users/1&#34; IN api
+</code></pre>
+<p>For a JSON response, this returns the decoded response body:</p>
+<pre><code class="language-fql">{
+    id: 1,
+    name: &#34;Ada&#34;
+}
+</code></pre>
+<p>Use <code>response: &#34;full&#34;</code> to return HTTP response metadata together with the decoded body:</p>
+<pre><code class="language-fql">RETURN QUERY ONE &#34;/users/1&#34; IN api OPTIONS {
+    response: &#34;full&#34;
+}
+</code></pre>
+<p>Full response shape:</p>
+<pre><code class="language-fql">{
+    ok: true,
+    status: 200,
+    headers: {
+        &#34;content-type&#34;: &#34;application/json&#34;
+    },
+    body: {
+        id: 1,
+        name: &#34;Ada&#34;
+    },
+    url: &#34;https://api.example.com/users/1&#34;
+}
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<p>By default, HTTP <code>4xx</code> and <code>5xx</code> statuses raise runtime errors.</p>
+<pre><code class="language-fql">LET api = NET::REST::CLIENT({
+    baseUrl: &#34;https://api.example.com&#34;,
+    encoding: &#34;json&#34;
+})
+
+RETURN QUERY ONE &#34;/users/404&#34; IN api
+</code></pre>
+<p>Set <code>errorMode: &#34;response&#34;</code> to return failed HTTP responses as structured values:</p>
+<pre><code class="language-fql">LET api = NET::REST::CLIENT({
+    baseUrl: &#34;https://api.example.com&#34;,
+    encoding: &#34;json&#34;,
+    errorMode: &#34;response&#34;
+})
+
+RETURN QUERY ONE &#34;/users/404&#34; IN api OPTIONS {
+    response: &#34;full&#34;
+}
+</code></pre>
+<p>The returned value has the same full response shape with <code>ok: false</code>:</p>
+<pre><code class="language-fql">{
+    ok: false,
+    status: 404,
+    headers: {
+        &#34;content-type&#34;: &#34;application/json&#34;
+    },
+    body: {
+        error: &#34;User not found&#34;
+    },
+    url: &#34;https://api.example.com/users/404&#34;
+}
+</code></pre>
+<h2 id="shortcut-queries">Shortcut Queries</h2>
+<p>For simple requests, the query shortcut can be used:</p>
+<pre><code class="language-fql">RETURN api[~ &#34;/users&#34;]
+</code></pre>
+<p>This is equivalent to:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api
+</code></pre>
+<p>Use the full <code>QUERY</code> expression when the request needs <code>WITH</code> or <code>OPTIONS</code>.</p>
+<pre><code class="language-fql">RETURN QUERY &#34;/users&#34; IN api WITH {
+    query: {
+        active: true
+    }
+} OPTIONS {
+    timeout: 5000
+}
+</code></pre>
+<h2 id="scope">Scope</h2>
+<p><code>NET::REST</code> is intended for REST-style and endpoint-oriented HTTP APIs.</p>
+<p>It is not a low-level HTTP module. Low-level HTTP primitives belong in the standard library under <code>IO::NET::HTTP</code>.</p>

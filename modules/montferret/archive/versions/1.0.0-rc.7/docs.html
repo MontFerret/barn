@@ -1,0 +1,96 @@
+<h1 id="archive">ARCHIVE</h1>
+<p>The <code>archive</code> contrib module inspects, reads, and extracts ZIP, TAR, TAR.GZ, and
+TGZ archives through Ferret&#39;s sandboxed filesystem.</p>
+<pre><code class="language-go">engine, err := ferret.New(
+    ferret.WithFSRoot(&#34;/sandbox&#34;),
+    ferret.WithModules(archive.New()),
+)
+</code></pre>
+<p>Every source read, metadata lookup, directory creation, destination write, and
+failure cleanup is performed through the filesystem attached to the execution
+context. URLs are not fetched: a source string is always a sandbox-visible
+filesystem path. The host may deny any operation through its filesystem policy.</p>
+<h2 id="list">List</h2>
+<pre><code class="language-fql">RETURN ARCHIVE::LIST(&#34;release.zip&#34;)
+</code></pre>
+<p><code>LIST(source, options?)</code> accepts <code>format: &#34;auto&#34; | &#34;zip&#34; | &#34;tar&#34; | &#34;tar.gz&#34; | &#34;tgz&#34;</code>. Auto detection checks the source suffix and then a bounded content
+probe. Results include the entry name, sizes, permission mode, modification
+time, type flags, link target when available, and normalized format.</p>
+<pre><code class="language-fql">{
+    name: &#34;docs/readme.md&#34;,
+    size: 1842,
+    compressedSize: 731,
+    mode: &#34;0644&#34;,
+    modTime: &#34;2026-06-09T12:30:00Z&#34;,
+    isDir: false,
+    isRegular: true,
+    isSymlink: false,
+    linkName: NONE,
+    format: &#34;zip&#34;
+}
+</code></pre>
+<p><code>compressedSize</code> is <code>NONE</code> for TAR and TAR.GZ. <code>modTime</code> is UTC RFC3339 when
+present and <code>NONE</code> otherwise. TAR hardlinks use <code>linkName</code> and report both
+<code>isRegular</code> and <code>isSymlink</code> as false.</p>
+<h2 id="read">Read</h2>
+<pre><code class="language-fql">LET manifest = ARCHIVE::READ(&#34;package.zip&#34;, &#34;manifest.json&#34;, {
+    as: &#34;string&#34;
+})
+RETURN JSON::PARSE(manifest)
+</code></pre>
+<p><code>READ(source, name, options?)</code> reads the first matching regular entry.</p>
+<ul>
+<li><code>as</code> is <code>binary</code> (default) or <code>string</code>.</li>
+<li><code>missing</code> is <code>error</code> (default) or <code>none</code>.</li>
+<li>directories, links, and special entries cannot be read as files.</li>
+</ul>
+<h2 id="extract">Extract</h2>
+<pre><code class="language-fql">RETURN ARCHIVE::EXTRACT(&#34;site.tar.gz&#34;, &#34;dist&#34;, {
+    overwrite: false,
+    createDirs: true,
+    include: [&#34;public&#34;, &#34;public/*&#34;],
+    exclude: [&#34;public/*.map&#34;],
+    links: &#34;skip&#34;
+})
+</code></pre>
+<p>Extraction validates the complete archive before creating output. Absolute,
+drive-qualified, UNC, backslash-containing, empty-segment, dot-segment, and
+parent-segment paths are rejected. Destination links are rejected through
+Ferret&#39;s link-aware filesystem metadata capability.</p>
+<p>Options and defaults:</p>
+<pre><code class="language-fql">{
+    format: &#34;auto&#34;,
+    overwrite: false,
+    createDirs: true,
+    include: [],
+    exclude: [],
+    links: &#34;skip&#34;
+}
+</code></pre>
+<p>Include and exclude patterns use Go <code>path.Match</code> semantics. Matching is
+case-sensitive, <code>*</code> does not cross <code>/</code>, exclude wins, and <code>**</code> is not a
+recursive wildcard. Filtered entries are omitted from results.</p>
+<pre><code class="language-fql">{
+    name: &#34;public/index.html&#34;,
+    path: &#34;dist/public/index.html&#34;,
+    size: 4210,
+    isDir: false,
+    skipped: false,
+    reason: NONE
+}
+</code></pre>
+<p>Symbolic and hard links are skipped by default and can instead be rejected with
+<code>links: &#34;error&#34;</code>. They are never followed or preserved. Devices, FIFOs,
+sockets, and unknown entry types are rejected.</p>
+<h2 id="resource-limits">Resource limits</h2>
+<p><code>WithMaxEntrySize</code> limits each materialized read and extracted regular entry.
+<code>WithMaxZIPBufferSize</code> limits ZIP fallback buffering when the sandbox source is
+neither random-access nor seekable. Both default to 64 MiB.</p>
+<p>Extraction streams regular files and removes incomplete outputs after read,
+write, close, or cancellation failures. The current filesystem API does not
+provide atomic replacement, so <code>overwrite: true</code> cannot restore an original
+file after replacement begins and a later write fails.</p>
+<h2 id="not-supported">Not supported</h2>
+<p>The module does not create or update archives, fetch URLs, preserve links,
+restore ownership, unpack device files, create unmanaged temporary files,
+support encrypted/password-protected ZIP files, or support RAR, 7z, XZ, or BZ2.</p>

@@ -1,0 +1,942 @@
+<h1 id="aillm">AI::LLM</h1>
+<p><code>AI::LLM</code> exposes text generation, chat, summarization, structured extraction,
+and classification to Ferret queries. Version 1 supports OpenAI through the
+Responses API and keeps all conversation state local to the current Ferret run.</p>
+<h2 id="registration">Registration</h2>
+<p>Register the module when constructing the Ferret engine:</p>
+<pre><code class="language-go">engine, err := ferret.New(
+	ferret.WithModules(llm.New()),
+)
+</code></pre>
+<p>The module name is <code>ai/llm</code>, and its functions are registered under the
+<code>AI::LLM</code> namespace.</p>
+<h2 id="quick-start">Quick start</h2>
+<p>Supply <code>openaiApiKey</code> as a Ferret execution parameter. Credentials are explicit:
+the module does not read provider credentials from process environment
+variables.</p>
+<pre><code class="language-fql">LET model = AI::LLM::MODEL(&#34;openai&#34;, {
+  model: &#34;gpt-5-mini&#34;,
+  apiKey: @openaiApiKey
+})
+
+LET greeting = AI::LLM::GENERATE(
+  model,
+  &#34;Write a one-sentence greeting for a new Ferret user.&#34;
+)
+
+LET session = AI::LLM::SESSION(model, {
+  instructions: &#34;Answer as a concise technical guide.&#34;
+})
+LET reply = AI::LLM::CHAT(session, &#34;What can I do with AI::LLM?&#34;)
+
+RETURN {
+  greeting: greeting,
+  reply: reply,
+  history: AI::LLM::HISTORY(session)
+}
+</code></pre>
+<h2 id="api-reference">API reference</h2>
+<p>All functions use the <code>AI::LLM</code> namespace. Unknown option keys are rejected.
+The operation functions accept either a stateless model or a local session as
+their <code>target</code>:</p>
+<ul>
+<li>
+<p>Functions: <a href="#model" rel="nofollow"><code>MODEL</code></a>, <a href="#session" rel="nofollow"><code>SESSION</code></a>,
+<a href="#generate" rel="nofollow"><code>GENERATE</code></a>, <a href="#chat" rel="nofollow"><code>CHAT</code></a>, <a href="#summarize" rel="nofollow"><code>SUMMARIZE</code></a>,
+<a href="#extract" rel="nofollow"><code>EXTRACT</code></a>, <a href="#classify" rel="nofollow"><code>CLASSIFY</code></a>, <a href="#reset" rel="nofollow"><code>RESET</code></a>,
+<a href="#fork" rel="nofollow"><code>FORK</code></a>, and <a href="#history" rel="nofollow"><code>HISTORY</code></a>.</p>
+</li>
+<li>
+<p>Other APIs: <a href="#query-api" rel="nofollow">Query API</a>, <a href="#error-reference" rel="nofollow">Error reference</a>,
+and <a href="#go-embedding-api" rel="nofollow">Go embedding API</a>.</p>
+</li>
+<li>
+<p>A <strong>model</strong> executes each request independently and has no conversation
+history.</p>
+</li>
+<li>
+<p>A <strong>session</strong> replays its existing history and commits the new input and
+assistant response only after a successful request.</p>
+</li>
+</ul>
+<h3 id="shared-value-shapes">Shared value shapes</h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Shape or source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Model</td>
+<td>Returned by <code>MODEL(..., {session: false})</code></td>
+<td>Stateless and safe for concurrent requests</td>
+</tr>
+<tr>
+<td>Session</td>
+<td>Returned by <code>MODEL(..., {session: true})</code>, <code>SESSION</code>, or <code>FORK</code></td>
+<td>Local to one Ferret run and serialized per session</td>
+</tr>
+<tr>
+<td>Message</td>
+<td><code>{role: string, content: string}</code></td>
+<td>Role is <code>system</code>, <code>developer</code>, <code>user</code>, or <code>assistant</code></td>
+</tr>
+<tr>
+<td>Schema</td>
+<td>JSON Schema object</td>
+<td>Used by <code>EXTRACT</code>; see <a href="#structured-extraction-schemas" rel="nofollow">Structured extraction schemas</a></td>
+</tr>
+<tr>
+<td>Labels</td>
+<td>Nonempty array of unique, nonempty strings</td>
+<td>Used by <code>CLASSIFY</code></td>
+</tr>
+<tr>
+<td>Classification</td>
+<td><code>{label: string}</code></td>
+<td><code>label</code> is exactly one of the supplied labels</td>
+</tr>
+<tr>
+<td>History</td>
+<td>Array of <code>{role: string, content: string}</code></td>
+<td>Returned as a copy by <code>HISTORY</code></td>
+</tr>
+</tbody>
+</table>
+<p>Models and sessions are opaque Ferret values. Their string, debug, and JSON
+representations do not expose model names, API keys, history, or provider
+configuration.</p>
+<p>The Ferret SDK matches tagged fields in configuration objects and messages
+case-insensitively. This reference uses the canonical spellings; JSON Schema
+keywords inside schema documents remain case-sensitive.</p>
+<h3 id="shared-execution-options">Shared execution options</h3>
+<p><code>GENERATE</code>, <code>CHAT</code>, <code>SUMMARIZE</code>, <code>EXTRACT</code>, and <code>CLASSIFY</code> accept these keys in
+their optional function options object. The same keys belong in <code>OPTIONS</code> when
+using the <a href="#query-api" rel="nofollow">Query API</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default when omitted</th>
+<th>Validation and behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temperature</code></td>
+<td>Number</td>
+<td>Provider default</td>
+<td>Must be between <code>0</code> and <code>2</code>; an explicit <code>0</code> is sent to the provider</td>
+</tr>
+<tr>
+<td><code>maxOutputTokens</code></td>
+<td>Integer</td>
+<td>Provider default</td>
+<td>Must be positive</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>Integer</td>
+<td><code>0</code></td>
+<td>Milliseconds; must be nonnegative; <code>0</code> adds no module deadline</td>
+</tr>
+</tbody>
+</table>
+<p>The temperature range is provider-neutral validation, not a guarantee that
+every provider model accepts every value. Omit <code>temperature</code> to use the
+provider default when model-specific support is unknown. When OpenAI identifies
+<code>temperature</code> or <code>max_output_tokens</code> as an unsupported option, the operation
+fails with <code>AI_LLM_INVALID_OPTIONS</code> and names the rejected public option.</p>
+<h3 id="model"><code>MODEL</code></h3>
+<pre><code class="language-fql">AI::LLM::MODEL(provider, options)
+</code></pre>
+<p>Creates a provider-backed model handle.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>Provider identifier; trimmed and matched case-insensitively</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>Yes</td>
+<td>Model configuration described below</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>—</td>
+<td>Nonblank provider model name; passed to the provider unchanged</td>
+</tr>
+<tr>
+<td><code>apiKey</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>—</td>
+<td>Nonblank explicit provider credential</td>
+</tr>
+<tr>
+<td><code>session</code></td>
+<td>Boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Return a default local session instead of a stateless model</td>
+</tr>
+</tbody>
+</table>
+<p>Returns a model when <code>session</code> is omitted or <code>false</code>. With <code>session: true</code>, it
+returns the equivalent of creating a session with default session options.</p>
+<pre><code class="language-fql">LET model = AI::LLM::MODEL(&#34;openai&#34;, {
+  model: &#34;gpt-5-mini&#34;,
+  apiKey: @openaiApiKey
+})
+RETURN model
+</code></pre>
+<p>Provider identifiers are case-insensitive. The module never reads credentials
+from process environment variables and does not expose credentials through
+value formatting, debugging, or JSON serialization.</p>
+<h3 id="session"><code>SESSION</code></h3>
+<pre><code class="language-fql">AI::LLM::SESSION(model, options)
+</code></pre>
+<p>Creates a local conversation session from a stateless model. Passing an
+existing session is rejected. The <code>Config</code> argument is required, but <code>{}</code> uses
+all defaults.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td>Stateless model</td>
+<td>Yes</td>
+<td>Model returned by <code>MODEL</code> with <code>session: false</code></td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>Yes</td>
+<td>Session configuration described below</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>instructions</code></td>
+<td>String</td>
+<td>No</td>
+<td>Empty</td>
+<td>Persistent instructions included with every session request</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>Object</td>
+<td>No</td>
+<td><code>{mode: &#34;local&#34;, overflow: &#34;error&#34;}</code></td>
+<td>Local context metadata</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>context</code> object accepts:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default</th>
+<th>Validation and behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>String</td>
+<td><code>&#34;local&#34;</code></td>
+<td>Only <code>&#34;local&#34;</code> is supported</td>
+</tr>
+<tr>
+<td><code>overflow</code></td>
+<td>String</td>
+<td><code>&#34;error&#34;</code></td>
+<td>Only <code>&#34;error&#34;</code> is supported</td>
+</tr>
+<tr>
+<td><code>maxTokens</code></td>
+<td>Integer</td>
+<td><code>0</code></td>
+<td>Must be positive when specified; metadata only</td>
+</tr>
+<tr>
+<td><code>reserveOutputTokens</code></td>
+<td>Integer</td>
+<td><code>0</code></td>
+<td>Must be nonnegative and smaller than <code>maxTokens</code> when both are specified</td>
+</tr>
+</tbody>
+</table>
+<p>The module does not proactively count tokens. A configured token limit records
+the intended model context metadata; provider context-window failures are
+reported as <code>AI_LLM_CONTEXT_LIMIT_ERROR</code>.</p>
+<pre><code class="language-fql">LET session = AI::LLM::SESSION(model, {
+  instructions: &#34;Answer as a concise technical editor.&#34;,
+  context: {
+    mode: &#34;local&#34;,
+    overflow: &#34;error&#34;,
+    maxTokens: 128000,
+    reserveOutputTokens: 4000
+  }
+})
+RETURN session
+</code></pre>
+<p>See <a href="#sessions" rel="nofollow">Sessions</a> for history, transaction, cleanup, and cancellation
+behavior.</p>
+<h3 id="generate"><code>GENERATE</code></h3>
+<pre><code class="language-fql">AI::LLM::GENERATE(target, prompt[, options])
+</code></pre>
+<p>Generates text from one prompt.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>Model or session</td>
+<td>Yes</td>
+<td>Provider model or local session</td>
+</tr>
+<tr>
+<td><code>prompt</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>User prompt</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>No</td>
+<td><code>instructions</code> plus any <a href="#shared-execution-options" rel="nofollow">shared execution options</a></td>
+</tr>
+</tbody>
+</table>
+<p><code>instructions</code> is an optional string sent separately from the user prompt.
+Returns the generated text as a string. A successful call against a session
+adds the prompt and assistant response to that session&#39;s history.</p>
+<pre><code class="language-fql">RETURN AI::LLM::GENERATE(model, &#34;Name three uses for a web crawler.&#34;, {
+  instructions: &#34;Use a numbered list.&#34;,
+  maxOutputTokens: 200
+})
+</code></pre>
+<h3 id="chat"><code>CHAT</code></h3>
+<pre><code class="language-fql">AI::LLM::CHAT(target, message[, options])
+</code></pre>
+<p>Generates an assistant response to a user message.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>Model or session</td>
+<td>Yes</td>
+<td>Provider model or local session</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>Final user message for this request</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>No</td>
+<td><code>messages</code>, <code>instructions</code>, and shared execution options</td>
+</tr>
+</tbody>
+</table>
+<p><code>messages</code> is an optional array of message objects:</p>
+<pre><code class="language-fql">[
+  {role: &#34;developer&#34;, content: &#34;Prefer short answers.&#34;},
+  {role: &#34;user&#34;, content: &#34;My project is called Ferret.&#34;},
+  {role: &#34;assistant&#34;, content: &#34;Understood.&#34;}
+]
+</code></pre>
+<p>Each message must contain exactly <code>role</code> and <code>content</code>. Supported roles are
+<code>system</code>, <code>developer</code>, <code>user</code>, and <code>assistant</code>. The positional <code>message</code> is
+always appended after this array as the final user message. <code>instructions</code> is
+an optional string sent separately from the message list.</p>
+<p>Returns the assistant response as a string. A successful session call commits
+the supplied messages, final user message, and assistant response atomically.</p>
+<pre><code class="language-fql">RETURN AI::LLM::CHAT(model, &#34;What is my project called?&#34;, {
+  messages: [
+    {role: &#34;user&#34;, content: &#34;My project is called Ferret.&#34;},
+    {role: &#34;assistant&#34;, content: &#34;I will remember that for this request.&#34;}
+  ]
+})
+</code></pre>
+<h3 id="summarize"><code>SUMMARIZE</code></h3>
+<pre><code class="language-fql">AI::LLM::SUMMARIZE(target, text[, options])
+</code></pre>
+<p>Summarizes the supplied text and returns the summary as a string.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>Model or session</td>
+<td>Yes</td>
+<td>Provider model or local session</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>Text to summarize</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>No</td>
+<td>Options described below plus shared execution options</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Validation and behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>style</code></td>
+<td>String</td>
+<td>Requested summary style, such as <code>&#34;bullet points&#34;</code></td>
+</tr>
+<tr>
+<td><code>maxWords</code></td>
+<td>Integer</td>
+<td>Must be positive; requests a maximum word count</td>
+</tr>
+<tr>
+<td><code>instructions</code></td>
+<td>String</td>
+<td>Additional summarization instructions</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-fql">RETURN AI::LLM::SUMMARIZE(model, article, {
+  style: &#34;bullet points&#34;,
+  maxWords: 120,
+  instructions: &#34;Preserve product names.&#34;,
+  maxOutputTokens: 600
+})
+</code></pre>
+<h3 id="extract"><code>EXTRACT</code></h3>
+<pre><code class="language-fql">AI::LLM::EXTRACT(target, text, schema[, options])
+</code></pre>
+<p>Extracts structured data from text, parses the provider response, validates it
+against the supplied JSON Schema, and returns the matching Ferret value.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>Model or session</td>
+<td>Yes</td>
+<td>Provider model or local session</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>Source text</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>Object</td>
+<td>Yes</td>
+<td>JSON Schema supplied as the third positional argument</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>No</td>
+<td><code>instructions</code> plus shared execution options</td>
+</tr>
+</tbody>
+</table>
+<p>The schema cannot be placed inside the function options object. <code>instructions</code>
+is an optional string containing additional extraction guidance. A successful
+session call records the validated structured response as JSON text.</p>
+<pre><code class="language-fql">LET product = AI::LLM::EXTRACT(model, description, {
+  type: &#34;object&#34;,
+  properties: {
+    name: {type: &#34;string&#34;},
+    price: {type: &#34;number&#34;}
+  },
+  required: [&#34;name&#34;, &#34;price&#34;],
+  additionalProperties: false
+}, {
+  instructions: &#34;Use the advertised price.&#34;
+})
+RETURN product
+</code></pre>
+<p>See <a href="#structured-extraction-schemas" rel="nofollow">Structured extraction schemas</a> for local
+validation and OpenAI-specific schema restrictions.</p>
+<h3 id="classify"><code>CLASSIFY</code></h3>
+<pre><code class="language-fql">AI::LLM::CLASSIFY(target, text, labels[, options])
+</code></pre>
+<p>Selects exactly one label for the supplied text.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>Model or session</td>
+<td>Yes</td>
+<td>Provider model or local session</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>String</td>
+<td>Yes</td>
+<td>Text to classify</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td>Array of strings</td>
+<td>Yes</td>
+<td>Nonempty, unique, nonempty allowed labels</td>
+</tr>
+<tr>
+<td><code>Config</code></td>
+<td>Object</td>
+<td>No</td>
+<td><code>instructions</code> plus shared execution options</td>
+</tr>
+</tbody>
+</table>
+<p>The labels cannot be placed inside the function options object. Returns
+<code>{label: &#34;...&#34;}</code>, where <code>label</code> is one of the supplied values.</p>
+<pre><code class="language-fql">RETURN AI::LLM::CLASSIFY(
+  model,
+  ticket,
+  [&#34;billing&#34;, &#34;technical&#34;, &#34;account&#34;],
+  {
+    instructions: &#34;Choose the primary support queue.&#34;
+  }
+)
+</code></pre>
+<h3 id="reset"><code>RESET</code></h3>
+<pre><code class="language-fql">AI::LLM::RESET(session)
+</code></pre>
+<p>Clears all visible history from a local session and returns <code>true</code>. The
+session&#39;s model and session options remain unchanged.</p>
+<pre><code class="language-fql">LET cleared = AI::LLM::RESET(session)
+RETURN {cleared: cleared, history: AI::LLM::HISTORY(session)}
+</code></pre>
+<h3 id="fork"><code>FORK</code></h3>
+<pre><code class="language-fql">AI::LLM::FORK(session)
+</code></pre>
+<p>Returns a new independent session with the same model, options, and copied
+history. Later requests and resets on either session do not affect the other.
+The fork is owned by the current Ferret run and is closed with the other
+run-scoped sessions.</p>
+<pre><code class="language-fql">LET alternate = AI::LLM::FORK(session)
+RETURN AI::LLM::CHAT(alternate, &#34;Give me a different answer.&#34;)
+</code></pre>
+<h3 id="history"><code>HISTORY</code></h3>
+<pre><code class="language-fql">AI::LLM::HISTORY(session)
+</code></pre>
+<p>Returns a copied array of visible <code>{role, content}</code> messages. Reading or
+modifying the returned array does not mutate the session.</p>
+<pre><code class="language-fql">RETURN AI::LLM::HISTORY(session)
+</code></pre>
+<h2 id="structured-extraction-schemas">Structured extraction schemas</h2>
+<p>Extraction schemas are compiled before a provider request. Local fragment
+references such as <code>#/$defs/address</code> are allowed, while external <code>$ref</code> values
+are rejected. Provider output is parsed and validated locally before it is
+returned or added to session history.</p>
+<p>OpenAI structured output schemas are also checked against OpenAI&#39;s stricter
+<a href="https://developers.openai.com/api/docs/guides/structured-outputs" rel="nofollow">Structured Outputs subset</a>
+before the request is sent. The root must be an object and cannot use <code>anyOf</code>;
+every object must set
+<code>additionalProperties: false</code>; and every declared property must appear in
+<code>required</code>. <code>oneOf</code>, <code>allOf</code>, <code>not</code>, dependent schemas or requirements, and
+conditional schemas are unsupported. Schemas may contain at most 10 levels of
+object nesting, 5,000 properties, 1,000 enum values, and 120,000 total
+characters across property names, definition names, string enum values, and
+string constants. A string enum with more than 250 values is additionally
+limited to 15,000 total characters. Incompatible schemas fail with
+<code>AI_LLM_INVALID_SCHEMA</code> without contacting OpenAI. These restrictions are
+OpenAI-specific and are not imposed on custom providers.</p>
+<h2 id="query-api">Query API</h2>
+<p>Models and sessions implement Ferret&#39;s Queryable contract:</p>
+<pre><code class="language-fql">QUERY [ONE] expression IN target [USING mode]
+  [WITH semanticOptions]
+  [OPTIONS executionOptions]
+</code></pre>
+<ul>
+<li><code>expression</code> supplies the text processed by the selected operation.</li>
+<li><code>target</code> is a model or session.</li>
+<li><code>USING</code> selects the operation. Omitting it is equivalent to
+<code>USING generate</code>.</li>
+<li><code>WITH</code> contains only operation-specific semantic data.</li>
+<li><code>OPTIONS</code> contains only <code>temperature</code>, <code>maxOutputTokens</code>, and <code>timeout</code> from
+<a href="#shared-execution-options" rel="nofollow">Shared execution options</a>.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><code>USING</code> mode</th>
+<th>Expression meaning</th>
+<th>Allowed <code>WITH</code> keys</th>
+<th>Required <code>WITH</code> keys</th>
+<th>Scalar result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Omitted or <code>generate</code></td>
+<td>User prompt</td>
+<td><code>instructions</code></td>
+<td>None</td>
+<td>String</td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td>Final user message</td>
+<td><code>messages</code>, <code>instructions</code></td>
+<td>None</td>
+<td>String</td>
+</tr>
+<tr>
+<td><code>summarize</code></td>
+<td>Text to summarize</td>
+<td><code>style</code>, <code>maxWords</code>, <code>instructions</code></td>
+<td>None</td>
+<td>String</td>
+</tr>
+<tr>
+<td><code>extract</code></td>
+<td>Text to inspect</td>
+<td><code>schema</code>, <code>instructions</code></td>
+<td><code>schema</code></td>
+<td>Schema-matching Ferret value</td>
+</tr>
+<tr>
+<td><code>classify</code></td>
+<td>Text to classify</td>
+<td><code>labels</code>, <code>instructions</code></td>
+<td><code>labels</code></td>
+<td><code>{label: &#34;...&#34;}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Unlike the function API, Query places the extraction schema and classification
+labels in <code>WITH</code>. Semantic keys are invalid in <code>OPTIONS</code>, and execution keys
+are invalid in <code>WITH</code>.</p>
+<h3 id="text-query-examples">Text Query examples</h3>
+<pre><code class="language-fql">LET model = AI::LLM::MODEL(&#34;openai&#34;, {
+  model: &#34;gpt-5-mini&#34;,
+  apiKey: @openaiApiKey
+})
+
+LET generated = QUERY ONE &#34;Write a haiku about parsers.&#34; IN model
+LET summary = QUERY ONE article IN model USING summarize
+  WITH {style: &#34;concise&#34;, maxWords: 80}
+  OPTIONS {maxOutputTokens: 300, timeout: 30000}
+
+RETURN {generated: generated, summary: summary}
+</code></pre>
+<h3 id="structured-query-examples">Structured Query examples</h3>
+<pre><code class="language-fql">LET product = QUERY ONE description IN model USING extract
+  WITH {
+    schema: {
+      type: &#34;object&#34;,
+      properties: {
+        name: {type: &#34;string&#34;},
+        price: {type: &#34;number&#34;}
+      },
+      required: [&#34;name&#34;, &#34;price&#34;],
+      additionalProperties: false
+    },
+    instructions: &#34;Use the advertised price.&#34;
+  }
+  OPTIONS {timeout: 30000}
+
+LET category = QUERY ONE ticket IN model USING classify
+  WITH {
+    labels: [&#34;billing&#34;, &#34;technical&#34;, &#34;account&#34;],
+    instructions: &#34;Choose the primary support queue.&#34;
+  }
+
+RETURN {product: product, category: category}
+</code></pre>
+<p>Plain <code>QUERY</code> returns a singleton list because Ferret&#39;s queryable contract is
+list-valued. Use <code>QUERY ONE</code> for the scalar result that matches the function
+API. <code>QUERY COUNT</code> and <code>QUERY EXISTS</code> are deliberately unsupported because
+either modifier would otherwise cause a potentially billable, state-mutating
+provider request.</p>
+<pre><code class="language-fql">RETURN QUERY ONE email.body IN model USING summarize
+</code></pre>
+<h2 id="sessions">Sessions</h2>
+<p><code>SESSION</code> accepts only a stateless model:</p>
+<pre><code class="language-fql">LET session = AI::LLM::SESSION(model, {
+  instructions: &#34;Answer as a concise technical editor.&#34;,
+  context: {
+    mode: &#34;local&#34;,
+    overflow: &#34;error&#34;,
+    maxTokens: 128000,
+    reserveOutputTokens: 4000
+  }
+})
+
+LET first = AI::LLM::CHAT(session, &#34;My API returns widgets.&#34;)
+LET second = AI::LLM::CHAT(session, &#34;What does my API return?&#34;)
+RETURN {
+  first: first,
+  second: second,
+  history: AI::LLM::HISTORY(session)
+}
+</code></pre>
+<p>Only local context with <code>overflow: &#34;error&#34;</code> is supported in version 1.
+<code>maxTokens</code> and <code>reserveOutputTokens</code> are validated configuration metadata; the
+module does not proactively count tokens. Provider context-window failures are
+reported as <code>AI_LLM_CONTEXT_LIMIT_ERROR</code>.</p>
+<p>Sessions replay visible text history on each request. They do not preserve
+hidden reasoning, provider-private response items, tools, or server-side
+conversation state. A successful call commits all input messages and the
+assistant response atomically. Failed, refused, malformed, or schema-invalid
+responses do not change history. Structured assistant responses appear in
+history as their validated JSON text.</p>
+<p><code>RESET</code> clears history, <code>FORK</code> creates an independent copy, and <code>HISTORY</code>
+returns a copy. Sessions created by <code>MODEL(..., {session: true})</code>, <code>SESSION</code>, or
+<code>FORK</code> are scoped to the current Ferret execution and are closed after that run,
+including sessions nested in arrays or objects.</p>
+<h2 id="error-reference">Error reference</h2>
+<p>AI::LLM errors have stable codes. Provider errors are sanitized and do not
+expose credentials or raw provider response bodies.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AI_LLM_PROVIDER_ERROR</code></td>
+<td>Generic or unclassified provider failure</td>
+</tr>
+<tr>
+<td><code>AI_LLM_AUTH_ERROR</code></td>
+<td>Provider rejected the supplied credentials</td>
+</tr>
+<tr>
+<td><code>AI_LLM_RATE_LIMIT_ERROR</code></td>
+<td>Provider rate limit was reached</td>
+</tr>
+<tr>
+<td><code>AI_LLM_TIMEOUT_ERROR</code></td>
+<td>Configured deadline expired or the provider reported a timeout</td>
+</tr>
+<tr>
+<td><code>AI_LLM_CONTEXT_LIMIT_ERROR</code></td>
+<td>Request exceeded the provider&#39;s model context limit</td>
+</tr>
+<tr>
+<td><code>AI_LLM_UNSUPPORTED_PROVIDER</code></td>
+<td>No registered factory matches the provider identifier</td>
+</tr>
+<tr>
+<td><code>AI_LLM_UNSUPPORTED_OPERATION</code></td>
+<td>Target or Query mode does not support the requested operation</td>
+</tr>
+<tr>
+<td><code>AI_LLM_INVALID_OPTIONS</code></td>
+<td>Arguments or options are invalid, or OpenAI rejected a known execution option</td>
+</tr>
+<tr>
+<td><code>AI_LLM_INVALID_SCHEMA</code></td>
+<td>Extraction schema is missing, malformed, externally referenced, or unsupported by the provider</td>
+</tr>
+<tr>
+<td><code>AI_LLM_INVALID_STRUCTURED_OUTPUT</code></td>
+<td>Provider returned malformed or unusable structured output</td>
+</tr>
+<tr>
+<td><code>AI_LLM_SCHEMA_VALIDATION_ERROR</code></td>
+<td>Parsed structured output does not satisfy the requested schema</td>
+</tr>
+<tr>
+<td><code>AI_LLM_REFUSAL</code></td>
+<td>Provider explicitly refused the request</td>
+</tr>
+</tbody>
+</table>
+<p>For Go embedders, caller-initiated cancellation is returned as
+<code>context.Canceled</code> rather than converted to a provider error. Configured
+deadlines and provider HTTP 408 responses remain <code>AI_LLM_TIMEOUT_ERROR</code>.
+Canceled session calls do not change history.</p>
+<h2 id="go-embedding-api">Go embedding API</h2>
+<p>Normal registration with <code>llm.New()</code> creates an engine-owned registry,
+registers the built-in OpenAI provider, and installs the registry into every
+Ferret run context.</p>
+<p>Install a custom provider factory as a module option:</p>
+<pre><code class="language-go">engine, err := ferret.New(
+	ferret.WithModules(
+		llm.New(
+			llm.WithProviderFactory(factory),
+		),
+	),
+)
+</code></pre>
+<p>Provider names are trimmed and matched case-insensitively. A custom factory
+with the same normalized name as a built-in provider deliberately replaces the
+built-in. When multiple module options provide the same name, the last factory
+wins.</p>
+<p>A provider factory implements:</p>
+<pre><code class="language-go">type ProviderFactory interface {
+	Name() string
+	NewModel(context.Context, core.ModelOptions) (core.Model, error)
+}
+</code></pre>
+<p>The provider receives the model name and explicit API key through
+<code>core.ModelOptions</code>. Model names remain opaque provider-specific strings.</p>
+<h3 id="registry-apis">Registry APIs</h3>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>core.NewRegistry()</code></td>
+<td>Creates an empty provider registry</td>
+</tr>
+<tr>
+<td><code>registry.Register(factory)</code></td>
+<td>Adds a factory and rejects a duplicate normalized provider name</td>
+</tr>
+<tr>
+<td><code>registry.Replace(factory)</code></td>
+<td>Adds or replaces the factory under its normalized provider name</td>
+</tr>
+<tr>
+<td><code>registry.NewModel(ctx, provider, options)</code></td>
+<td>Resolves a provider and creates a model</td>
+</tr>
+<tr>
+<td><code>core.WithRegistry(ctx, registry)</code></td>
+<td>Returns a context carrying the registry; a nil parent context is replaced with <code>context.Background()</code></td>
+</tr>
+<tr>
+<td><code>core.RegistryFrom(ctx)</code></td>
+<td>Returns the non-nil registry stored in the context</td>
+</tr>
+<tr>
+<td><code>core.ErrRegistryNotFound</code></td>
+<td>Sentinel returned when the context has no non-nil registry</td>
+</tr>
+</tbody>
+</table>
+<p>Custom integrations that invoke <code>core</code> or register <code>lib</code> directly can supply
+their own context-carried registry:</p>
+<pre><code class="language-go">registry := core.NewRegistry()
+if err := registry.Register(factory); err != nil {
+	return err
+}
+
+ctx := core.WithRegistry(context.Background(), registry)
+resolved, err := core.RegistryFrom(ctx)
+</code></pre>
+<p>The standard <code>llm.New()</code> module always installs its engine-owned registry for a
+run, replacing any registry attached to the caller&#39;s original run context.</p>
+<h2 id="limitations">Limitations</h2>
+<p>This initial module is text-only. Streaming, tools, agents, MCP, embeddings,
+OCR, vision, vector search, persistent sessions, provider-side conversations,
+custom base URLs, retries, and model discovery are outside its version 1
+contract.</p>

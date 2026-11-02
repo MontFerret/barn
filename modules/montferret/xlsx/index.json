@@ -6,6 +6,11 @@
   "description": "Excel-compatible XLSX workbook handles under DOCUMENT::XLSX for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.12",
+      "publishedAt": "2026-11-02T20:52:54Z",
+      "href": "/modules/montferret/xlsx/versions/1.0.0-rc.12/index.json"
+    },
+    {
       "version": "1.0.0-rc.10",
       "publishedAt": "2026-09-06T17:50:08Z",
       "href": "/modules/montferret/xlsx/versions/1.0.0-rc.10/index.json"

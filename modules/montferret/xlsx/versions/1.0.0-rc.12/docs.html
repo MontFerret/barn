@@ -1,0 +1,202 @@
+<h1 id="documentxlsx-module">DOCUMENT::XLSX Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/document/xlsx</code> registers Microsoft Excel-compatible <code>.xlsx</code> workbook helpers under the <code>DOCUMENT::XLSX</code> namespace.</p>
+<p>The module focuses on workbook lifecycle, worksheets, scalar cell values, rectangular ranges, row appends, persistence, and worksheet querying. It does not expose the underlying Go Excel library through Ferret.</p>
+<p>Out of scope for the initial version: <code>.xls</code>, macros or macro execution, formula evaluation, charts, pivot tables, images, conditional formatting, comprehensive styling, password-protected workbooks, CSV, and a generic spreadsheet abstraction.</p>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/document/xlsx
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	xlsxmodule &#34;github.com/MontFerret/contrib/modules/document/xlsx&#34;
+)
+
+func main() {
+	engine, err := ferret.New(
+		ferret.WithFSRoot(&#34;./workbooks&#34;),
+		ferret.WithModules(xlsxmodule.New()),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<p>The module is importable by embedded applications and by external Ferret plugin packaging. This repository does not add it to a default CLI binary or define a plugin manifest.</p>
+<p><code>OPEN</code>, <code>SAVE</code>, and <code>SAVE_AS</code> use Ferret&#39;s filesystem from the execution context. Configure <code>ferret.WithFSRoot</code> in the host application to allow disk access, and use workbook paths relative to that root. <code>ferret.WithFSReadOnly</code> blocks writes through this module.</p>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCUMENT::XLSX::CREATE</code></td>
+<td><code>CREATE()</code></td>
+<td>Workbook handle</td>
+<td>Creates an in-memory workbook.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::OPEN</code></td>
+<td><code>OPEN(path)</code></td>
+<td>Workbook handle</td>
+<td>Opens an existing <code>.xlsx</code> through Ferret&#39;s filesystem; never creates on failure.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::SHEETS</code></td>
+<td><code>SHEETS(workbook)</code></td>
+<td><code>Array&lt;String&gt;</code></td>
+<td>Worksheet names in workbook order.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::SHEET</code></td>
+<td><code>SHEET(workbook, name)</code></td>
+<td>Worksheet handle</td>
+<td>Fails when the sheet does not exist.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::ADD_SHEET</code></td>
+<td><code>ADD_SHEET(workbook, name)</code></td>
+<td>Worksheet handle</td>
+<td>Creates a worksheet.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::DELETE_SHEET</code></td>
+<td><code>DELETE_SHEET(workbook, name)</code></td>
+<td><code>Boolean</code></td>
+<td>Deletes a worksheet and invalidates existing handles to it.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::GET</code></td>
+<td><code>GET(sheet, cell)</code></td>
+<td>Scalar or <code>NONE</code></td>
+<td>Reads one A1 cell.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::SET</code></td>
+<td><code>SET(sheet, cell, value)</code></td>
+<td><code>Boolean</code></td>
+<td>Writes one scalar value.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::RANGE</code></td>
+<td><code>RANGE(sheet, range)</code></td>
+<td>Row arrays</td>
+<td>Reads a rectangular A1 range.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::WRITE_RANGE</code></td>
+<td><code>WRITE_RANGE(sheet, rangeOrCell, rows)</code></td>
+<td><code>Boolean</code></td>
+<td>Writes a rectangular array of row arrays.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::APPEND</code></td>
+<td><code>APPEND(sheet, rows)</code></td>
+<td><code>Boolean</code></td>
+<td>Appends after the last populated row.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::SAVE</code></td>
+<td><code>SAVE(workbook)</code></td>
+<td><code>Boolean</code></td>
+<td>Saves to the current path. Created workbooks need <code>SAVE_AS</code> first.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::SAVE_AS</code></td>
+<td><code>SAVE_AS(workbook, path)</code></td>
+<td><code>Boolean</code></td>
+<td>Saves through Ferret&#39;s filesystem and makes <code>path</code> the current path. Parent directories must already exist.</td>
+</tr>
+<tr>
+<td><code>DOCUMENT::XLSX::CLOSE</code></td>
+<td><code>CLOSE(workbook)</code></td>
+<td><code>Boolean</code></td>
+<td>Releases resources. Repeated close is idempotent.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reading-and-writing">Reading And Writing</h2>
+<pre><code class="language-fql">LET workbook = DOCUMENT::XLSX::CREATE()
+LET sheet = DOCUMENT::XLSX::SHEET(workbook, &#34;Sheet1&#34;)
+
+DOCUMENT::XLSX::SET(sheet, &#34;A1&#34;, &#34;Name&#34;)
+DOCUMENT::XLSX::SET(sheet, &#34;B1&#34;, &#34;Score&#34;)
+DOCUMENT::XLSX::WRITE_RANGE(sheet, &#34;A2&#34;, [
+  [&#34;Alice&#34;, 92],
+  [&#34;Bob&#34;, 81]
+])
+
+RETURN DOCUMENT::XLSX::RANGE(sheet, &#34;A1:B3&#34;)
+</code></pre>
+<p><code>WRITE_RANGE</code> accepts either a start cell (<code>&#34;A1&#34;</code>) or a full range (<code>&#34;A1:B3&#34;</code>). A full range must match the supplied matrix dimensions. Rows must be rectangular; errors include the invalid one-based row index.</p>
+<p><code>APPEND</code> finds the last row with at least one non-empty value according to the workbook&#39;s current worksheet values. It ignores intentionally empty trailing rows and style-only rows.</p>
+<h2 id="querying-worksheets">Querying Worksheets</h2>
+<p>Worksheet handles are queryable. The query payload is a string A1 range:</p>
+<pre><code class="language-fql">LET rows = QUERY &#34;A1:D20&#34; IN sheet
+LET sameRows = sheet[~ &#34;A1:D20&#34;]
+</code></pre>
+<p>Without <code>WITH.headers</code>, queries return row arrays. With <code>headers: true</code>, the first row becomes object keys and is not returned as data:</p>
+<pre><code class="language-fql">RETURN QUERY &#34;A1:D100&#34; IN sheet WITH {
+  headers: true,
+  trimEmptyRows: true
+}
+</code></pre>
+<p>Header conversion is deterministic:</p>
+<ul>
+<li>header values are converted with their Ferret string representation;</li>
+<li>empty header cells become <code>column_1</code>, <code>column_2</code>, and so on by position;</li>
+<li>duplicate names are disambiguated as <code>name_2</code>, <code>name_3</code>, and so on.</li>
+</ul>
+<p><code>trimEmptyRows: true</code> removes only fully empty rows at the end of the selected range. It does not remove empty rows in the middle.</p>
+<h2 id="complete-example">Complete Example</h2>
+<pre><code class="language-fql">LET workbook = DOCUMENT::XLSX::OPEN(&#34;./sales.xlsx&#34;)
+LET source = DOCUMENT::XLSX::SHEET(workbook, &#34;Sales&#34;)
+LET output = DOCUMENT::XLSX::ADD_SHEET(workbook, &#34;Active Sales&#34;)
+
+LET activeRows = (
+  FOR row IN (
+    QUERY &#34;A1:D100&#34; IN source WITH {
+      headers: true,
+      trimEmptyRows: true
+    }
+  )
+    FILTER row.Active == true
+    RETURN [
+      row.Name,
+      row.Department,
+      row.Score
+    ]
+)
+
+DOCUMENT::XLSX::WRITE_RANGE(output, &#34;A1&#34;, UNION(
+  [[&#34;Name&#34;, &#34;Department&#34;, &#34;Score&#34;]],
+  activeRows
+))
+DOCUMENT::XLSX::SAVE_AS(workbook, &#34;./output/active-sales.xlsx&#34;)
+DOCUMENT::XLSX::CLOSE(workbook)
+</code></pre>
+<h2 id="type-conversion">Type Conversion</h2>
+<p>Reads return deterministic scalar Ferret values:</p>
+<ul>
+<li>empty cell -&gt; <code>NONE</code>;</li>
+<li>string -&gt; <code>String</code>;</li>
+<li>boolean -&gt; <code>Boolean</code>;</li>
+<li>integer-like number within range -&gt; <code>Int</code>;</li>
+<li>other number -&gt; <code>Float</code>;</li>
+<li>explicit Excel date cells or cells with built-in date/time styles -&gt; <code>DateTime</code> when the serial value can be decoded.</li>
+</ul>
+<p>Writes accept <code>NONE</code>, strings, booleans, integers, floats, and <code>DateTime</code>. Arrays, objects, binary values, functions, and host values are rejected rather than serialized implicitly.</p>
+<p>Formula cells return the cached/displayed value available in the file. The module does not implement an Excel calculation engine, so formulas created or changed by other tools may need to be recalculated by Excel-compatible software before cached values are current.</p>
+<h2 id="lifecycle-and-concurrency">Lifecycle And Concurrency</h2>
+<p>Workbooks own their worksheet values. Closing a workbook invalidates all worksheets derived from it. Deleting a worksheet invalidates existing handles for that worksheet, and re-creating a worksheet with the same name does not revive old handles.</p>
+<p>Workbook operations are guarded by an internal mutex. Calls through a single workbook handle are serialized because the underlying workbook object is mutable.</p>

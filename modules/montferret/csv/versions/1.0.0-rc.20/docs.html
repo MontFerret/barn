@@ -1,0 +1,210 @@
+<h1 id="csv-module">CSV Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/csv</code> registers CSV helpers under the <code>CSV</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>CSV::DECODE</code></li>
+<li><code>CSV::DECODE_ROWS</code></li>
+<li><code>CSV::DECODE_STREAM</code></li>
+<li><code>CSV::DECODE_ROWS_STREAM</code></li>
+<li><code>CSV::ENCODE</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/csv
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	csvmodule &#34;github.com/MontFerret/contrib/modules/csv&#34;
+)
+
+func main() {
+	csvMod, err := csvmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(csvMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CSV::DECODE</code></td>
+<td><code>CSV::DECODE(data, opts?)</code></td>
+<td><code>Object[]</code></td>
+<td>Decodes CSV text into objects. By default, the first row is treated as a header row.</td>
+</tr>
+<tr>
+<td><code>CSV::DECODE_ROWS</code></td>
+<td><code>CSV::DECODE_ROWS(data, opts?)</code></td>
+<td><code>Any[][]</code></td>
+<td>Decodes CSV text into raw row arrays. Header rows stay in the output as data.</td>
+</tr>
+<tr>
+<td><code>CSV::DECODE_STREAM</code></td>
+<td><code>CSV::DECODE_STREAM(data, opts?)</code></td>
+<td><code>Iterator&lt;Object&gt;</code></td>
+<td>Streaming object decoder. Accepts string or binary CSV input.</td>
+</tr>
+<tr>
+<td><code>CSV::DECODE_ROWS_STREAM</code></td>
+<td><code>CSV::DECODE_ROWS_STREAM(data, opts?)</code></td>
+<td><code>Iterator&lt;Any[]&gt;</code></td>
+<td>Streaming row decoder. Accepts string or binary CSV input.</td>
+</tr>
+<tr>
+<td><code>CSV::ENCODE</code></td>
+<td><code>CSV::ENCODE(data, opts?)</code></td>
+<td><code>String</code></td>
+<td>Encodes an array of objects or row arrays into CSV text.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="options">Options</h2>
+<p>All options use camelCase keys when passed from Ferret queries.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Applies To</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>delimiter</code></td>
+<td><code>&#34;,&#34;</code></td>
+<td>decode, encode</td>
+<td>Field delimiter. Must be exactly one valid character.</td>
+</tr>
+<tr>
+<td><code>comment</code></td>
+<td>unset</td>
+<td>decode</td>
+<td>Skips comment-prefixed records during decode. Must differ from <code>delimiter</code>.</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>unset</td>
+<td>decode, encode</td>
+<td>Decode: explicit object field names when <code>header</code> is <code>false</code>. Encode: explicit object column order and selection.</td>
+</tr>
+<tr>
+<td><code>nullValues</code></td>
+<td>unset</td>
+<td>decode</td>
+<td>Decodes matching field values as <code>null</code>/<code>None</code>.</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td><code>true</code></td>
+<td>decode, encode</td>
+<td>Decode: uses the first record as object keys. Encode: writes a header row when encoding objects.</td>
+</tr>
+<tr>
+<td><code>trim</code></td>
+<td><code>false</code></td>
+<td>decode</td>
+<td>Trims leading and trailing whitespace before value conversion.</td>
+</tr>
+<tr>
+<td><code>skipEmpty</code></td>
+<td><code>true</code></td>
+<td>decode</td>
+<td>Skips completely empty records.</td>
+</tr>
+<tr>
+<td><code>strict</code></td>
+<td><code>true</code></td>
+<td>decode</td>
+<td>Enforces consistent field counts and strict header validation.</td>
+</tr>
+<tr>
+<td><code>inferTypes</code></td>
+<td><code>false</code></td>
+<td>decode</td>
+<td>Converts values to numbers and booleans when possible; otherwise keeps strings.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples</h2>
+<h3 id="decode-objects-from-a-headered-csv">Decode Objects From A Headered CSV</h3>
+<pre><code class="language-fql">RETURN CSV::DECODE(&#34;name,age\nAlice,30\nBob,25&#34;)
+</code></pre>
+<p>This returns objects keyed by the header row:</p>
+<pre><code class="language-json">[
+  { &#34;name&#34;: &#34;Alice&#34;, &#34;age&#34;: &#34;30&#34; },
+  { &#34;name&#34;: &#34;Bob&#34;, &#34;age&#34;: &#34;25&#34; }
+]
+</code></pre>
+<h3 id="decode-a-headerless-csv-with-explicit-columns">Decode A Headerless CSV With Explicit Columns</h3>
+<pre><code class="language-fql">RETURN CSV::DECODE(
+  &#34;Alice,Smith\nBob,Jones&#34;,
+  {
+    header: false,
+    columns: [&#34;first&#34;, &#34;last&#34;]
+  }
+)
+</code></pre>
+<h3 id="decode-raw-rows">Decode Raw Rows</h3>
+<pre><code class="language-fql">RETURN CSV::DECODE_ROWS(&#34;name,age\nAlice,30&#34;)
+</code></pre>
+<p>This keeps the header row in the output:</p>
+<pre><code class="language-json">[
+  [&#34;name&#34;, &#34;age&#34;],
+  [&#34;Alice&#34;, &#34;30&#34;]
+]
+</code></pre>
+<h3 id="encode-objects-with-explicit-column-order">Encode Objects With Explicit Column Order</h3>
+<pre><code class="language-fql">RETURN CSV::ENCODE(
+  [
+    { name: &#34;Alice&#34;, age: 30 },
+    { name: &#34;Bob&#34;, age: 25 }
+  ],
+  {
+    columns: [&#34;age&#34;, &#34;name&#34;]
+  }
+)
+</code></pre>
+<p>This writes the header and data in the requested order:</p>
+<pre><code class="language-text">age,name
+30,Alice
+25,Bob
+</code></pre>
+<h3 id="stream-decoded-objects">Stream Decoded Objects</h3>
+<pre><code class="language-fql">FOR row IN CSV::DECODE_STREAM(
+  &#34;name,age\nAlice,30\nBob,25&#34;,
+  { inferTypes: true }
+)
+RETURN row
+</code></pre>
+<p>Streaming decode functions accept either string or binary CSV input.</p>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>header: true</code> cannot be combined with <code>columns</code>.</li>
+<li>When decoding objects with <code>header: false</code> and no <code>columns</code>, the module auto-generates <code>col1</code>, <code>col2</code>, and so on.</li>
+<li><code>strict: false</code> relaxes field-count validation during decode.</li>
+<li>In relaxed header mode, empty header names are synthesized and duplicate header names are renamed to unique suffixed variants such as <code>name_2</code>.</li>
+<li>Stream iterator keys preserve the original 1-based CSV record numbers after parsing.</li>
+<li><code>comment</code> must differ from <code>delimiter</code>, and both options must be exactly one valid character.</li>
+</ul>

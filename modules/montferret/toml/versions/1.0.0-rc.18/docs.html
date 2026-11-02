@@ -1,0 +1,115 @@
+<h1 id="toml-module">TOML Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/toml</code> registers TOML helpers under the canonical <code>TOML</code> namespace for Ferret hosts.</p>
+<p>The module exposes these canonical functions:</p>
+<ul>
+<li><code>TOML::DECODE</code></li>
+<li><code>TOML::ENCODE</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/toml
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	tomlmodule &#34;github.com/MontFerret/contrib/modules/toml&#34;
+)
+
+func main() {
+	tomlMod, err := tomlmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(tomlMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TOML::DECODE</code></td>
+<td><code>TOML::DECODE(input[, options])</code></td>
+<td><code>Object</code></td>
+<td>Decodes a whole TOML document from string or binary input.</td>
+</tr>
+<tr>
+<td><code>TOML::ENCODE</code></td>
+<td><code>TOML::ENCODE(value[, options])</code></td>
+<td><code>String</code></td>
+<td>Encodes a Ferret object into TOML text.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decode-options">Decode Options</h2>
+<pre><code class="language-fql">{
+  datetime: &#34;string&#34; | &#34;native&#34;,
+  strict: true | false
+}
+</code></pre>
+<p>Default:</p>
+<pre><code class="language-fql">{
+  datetime: &#34;string&#34;,
+  strict: true
+}
+</code></pre>
+<h2 id="encode-options">Encode Options</h2>
+<pre><code class="language-fql">{
+  sortKeys: true | false,
+  datetime: &#34;rfc3339&#34; | &#34;preserve&#34;
+}
+</code></pre>
+<p>Default:</p>
+<pre><code class="language-fql">{
+  sortKeys: false,
+  datetime: &#34;rfc3339&#34;
+}
+</code></pre>
+<h2 id="examples">Examples</h2>
+<h3 id="decode">Decode</h3>
+<pre><code class="language-fql">RETURN TOML::DECODE(&#34;
+title = \&#34;Ferret\&#34;
+
+[server]
+host = \&#34;localhost\&#34;
+port = 8080
+&#34;)
+</code></pre>
+<h3 id="encode">Encode</h3>
+<pre><code class="language-fql">RETURN TOML::ENCODE({
+  title: &#34;Ferret&#34;,
+  server: {
+    host: &#34;localhost&#34;,
+    port: 8080
+  }
+})
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>TOML::DECODE</code> accepts both string and binary TOML input.</li>
+<li>The top-level TOML document always decodes to an object.</li>
+<li><code>datetime: &#34;string&#34;</code> returns TOML timestamps as canonical strings.</li>
+<li><code>datetime: &#34;native&#34;</code> returns Ferret <code>DateTime</code> values and preserves TOML local datetime/date/time flavor using the underlying location name.</li>
+<li><code>strict: false</code> is reserved for a future relaxed mode and currently returns an explicit error.</li>
+<li><code>TOML::ENCODE</code> requires the top-level value to be an object or map.</li>
+<li>Arrays of objects encode as arrays of tables when they appear as direct object fields.</li>
+<li>Values without a TOML representation, such as <code>None</code>, binary data, iterators, and host-only values, return an explicit error.</li>
+<li>Output formatting is implementation-defined apart from valid TOML syntax and the optional <code>sortKeys</code> behavior.</li>
+</ul>

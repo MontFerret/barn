@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/llm",
+  "version": "1.0.0-rc.8",
+  "description": "Text generation, chat, extraction, and classification under AI::LLM for Ferret.",
+  "namespace": "AI::LLM",
+  "ferret": "\u003e=2.0.0-alpha.58 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/ai/llm",
+    "commit": "136044bb4afc780429bf5471185f76380e88cb97"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/ai/llm"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

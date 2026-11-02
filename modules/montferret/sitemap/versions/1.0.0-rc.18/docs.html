@@ -1,0 +1,180 @@
+<h1 id="websitemap-module">WEB::SITEMAP Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/web/sitemap</code> registers sitemap discovery helpers under the <code>WEB::SITEMAP</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>WEB::SITEMAP::FETCH</code></li>
+<li><code>WEB::SITEMAP::URLS</code></li>
+<li><code>WEB::SITEMAP::STREAM</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/web/sitemap
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	sitemapmodule &#34;github.com/MontFerret/contrib/modules/web/sitemap&#34;
+)
+
+func main() {
+	sitemapMod, err := sitemapmodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(sitemapMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WEB::SITEMAP::FETCH</code></td>
+<td><code>WEB::SITEMAP::FETCH(url, opts?)</code></td>
+<td><code>Object</code></td>
+<td>Fetches and parses a single sitemap document. Returns either a <code>urlset</code> or <code>sitemapindex</code> object.</td>
+</tr>
+<tr>
+<td><code>WEB::SITEMAP::URLS</code></td>
+<td><code>WEB::SITEMAP::URLS(url, opts?)</code></td>
+<td><code>Object[]</code></td>
+<td>Fetches a sitemap tree and returns flattened URL entries.</td>
+</tr>
+<tr>
+<td><code>WEB::SITEMAP::STREAM</code></td>
+<td><code>WEB::SITEMAP::STREAM(url, opts?)</code></td>
+<td><code>Iterator&lt;Object&gt;</code></td>
+<td>Lazily fetches and expands sitemap trees.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="return-shapes">Return Shapes</h2>
+<p><code>WEB::SITEMAP::FETCH</code> returns one of these document shapes:</p>
+<pre><code class="language-json">{
+  &#34;type&#34;: &#34;urlset&#34;,
+  &#34;urls&#34;: [
+    {
+      &#34;loc&#34;: &#34;https://example.com/page&#34;,
+      &#34;lastmod&#34;: &#34;2026-03-01T12:00:00Z&#34;,
+      &#34;changefreq&#34;: &#34;weekly&#34;,
+      &#34;priority&#34;: 0.8,
+      &#34;source&#34;: &#34;https://example.com/sitemap.xml&#34;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &#34;type&#34;: &#34;sitemapindex&#34;,
+  &#34;sitemaps&#34;: [
+    {
+      &#34;loc&#34;: &#34;https://example.com/posts.xml&#34;,
+      &#34;lastmod&#34;: &#34;2026-03-01T12:00:00Z&#34;
+    }
+  ]
+}
+</code></pre>
+<p><code>WEB::SITEMAP::URLS</code> and <code>WEB::SITEMAP::STREAM</code> yield URL entry objects in this shape:</p>
+<pre><code class="language-json">{
+  &#34;loc&#34;: &#34;https://example.com/page&#34;,
+  &#34;lastmod&#34;: &#34;2026-03-01T12:00:00Z&#34;,
+  &#34;changefreq&#34;: &#34;weekly&#34;,
+  &#34;priority&#34;: 0.8,
+  &#34;source&#34;: &#34;https://example.com/sitemap.xml&#34;
+}
+</code></pre>
+<p><code>lastmod</code> is returned as <code>String | None</code> in v1.</p>
+<h2 id="options">Options</h2>
+<p>All sitemap functions accept the same camelCase options object.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Applies To</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>recursive</code></td>
+<td><code>true</code></td>
+<td>urls, stream</td>
+<td>Expands nested sitemap indexes. <code>FETCH</code> accepts the option for API consistency but does not recurse.</td>
+</tr>
+<tr>
+<td><code>dedupe</code></td>
+<td><code>true</code></td>
+<td>urls, stream</td>
+<td>Deduplicates yielded page URLs by <code>loc</code> and avoids refetching the same sitemap document.</td>
+</tr>
+<tr>
+<td><code>maxDepth</code></td>
+<td><code>8</code></td>
+<td>urls, stream</td>
+<td>Maximum nested sitemap-index depth.</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>30000</code></td>
+<td>fetch, urls, stream</td>
+<td>Per-request timeout in milliseconds.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td><code>{}</code></td>
+<td>fetch, urls, stream</td>
+<td>Optional HTTP headers such as <code>User-Agent</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>recursive</code> is <code>false</code>, <code>URLS</code> and <code>STREAM</code> return no URL entries for sitemap-index documents.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="inspect-a-sitemap-document">Inspect A Sitemap Document</h3>
+<pre><code class="language-fql">RETURN WEB::SITEMAP::FETCH(&#34;https://example.com/sitemap.xml&#34;)
+</code></pre>
+<h3 id="return-all-discovered-urls">Return All Discovered URLs</h3>
+<pre><code class="language-fql">FOR page IN WEB::SITEMAP::STREAM(&#34;https://example.com/sitemap.xml&#34;)
+  RETURN page.loc
+</code></pre>
+<h3 id="filter-urls-from-a-sitemap-tree">Filter URLs From A Sitemap Tree</h3>
+<pre><code class="language-fql">FOR page IN WEB::SITEMAP::URLS(&#34;https://example.com/sitemap.xml&#34;)
+  FILTER CONTAINS(page.loc, &#34;/blog/&#34;)
+  RETURN page
+</code></pre>
+<h3 id="limit-large-sitemap-traversals">Limit Large Sitemap Traversals</h3>
+<pre><code class="language-fql">FOR page IN WEB::SITEMAP::STREAM(
+  &#34;https://example.com/sitemap.xml&#34;,
+  {
+    headers: { &#34;User-Agent&#34;: &#34;Ferret/2&#34; },
+    maxDepth: 4
+  }
+)
+  LIMIT 100
+  RETURN page.loc
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li><code>FETCH</code> validates sitemap URLs and supports only <code>http</code> and <code>https</code>.</li>
+<li><code>URLS</code> and <code>STREAM</code> traverse nested sitemap indexes depth-first.</li>
+<li>When dedupe is enabled, duplicate page URLs are removed by <code>loc</code> and the first-seen entry is preserved.</li>
+<li>Fetch, parse, and expansion failures include sitemap URL and stage context in the error.</li>
+<li><code>priority</code> is parsed as a float when present; malformed values return an error.</li>
+<li>XML parsing is implemented on top of the existing contrib XML internals.</li>
+</ul>

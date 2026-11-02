@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/article",
+  "version": "1.0.0-rc.19",
+  "description": "Article extraction helpers under WEB::ARTICLE for Ferret.",
+  "namespace": "WEB::ARTICLE",
+  "ferret": "\u003e=2.0.0-alpha.58 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/web/article",
+    "commit": "136044bb4afc780429bf5471185f76380e88cb97"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/web/article"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}

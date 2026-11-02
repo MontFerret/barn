@@ -6,6 +6,11 @@
   "description": "Sandboxed ZIP, TAR, TAR.GZ, and TGZ inspection and extraction under ARCHIVE.",
   "versions": [
     {
+      "version": "1.0.0-rc.7",
+      "publishedAt": "2026-11-02T20:51:38Z",
+      "href": "/modules/montferret/archive/versions/1.0.0-rc.7/index.json"
+    },
+    {
       "version": "1.0.0-rc.5",
       "publishedAt": "2026-09-05T13:32:34Z",
       "href": "/modules/montferret/archive/versions/1.0.0-rc.5/index.json"

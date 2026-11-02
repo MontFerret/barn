@@ -1,0 +1,54 @@
+<h1 id="securityjwt-module">SECURITY::JWT Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/security/jwt</code> registers JWT signing,
+verification, inspection, and key helpers under the <code>SECURITY::JWT</code> namespace.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>SECURITY::JWT::INSPECT</code></li>
+<li><code>SECURITY::JWT::VERIFY</code></li>
+<li><code>SECURITY::JWT::SIGN</code></li>
+<li><code>SECURITY::JWT::HMAC_KEY</code></li>
+<li><code>SECURITY::JWT::PUBLIC_KEY</code></li>
+<li><code>SECURITY::JWT::PRIVATE_KEY</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/security/jwt
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+    &#34;github.com/MontFerret/ferret/v2&#34;
+
+    jwtmodule &#34;github.com/MontFerret/contrib/modules/security/jwt&#34;
+)
+
+func main() {
+    engine, err := ferret.New(
+        ferret.WithModules(jwtmodule.New()),
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    _ = engine
+}
+</code></pre>
+<p><code>jwtmodule.WithMaxTokenSize</code> changes the maximum accepted compact JWT size
+from its 64 KiB default.</p>
+<h2 id="hmac-example">HMAC Example</h2>
+<pre><code class="language-fql">LET key = SECURITY::JWT::HMAC_KEY(@secret)
+LET token = SECURITY::JWT::SIGN({ sub: &#34;user-123&#34; }, key, {
+    algorithm: &#34;HS256&#34;,
+    expires_in: 3600,
+    issued_at: true
+})
+
+RETURN SECURITY::JWT::VERIFY(token, key, {
+    algorithms: [&#34;HS256&#34;],
+    required: [&#34;sub&#34;]
+})
+</code></pre>
+<p><code>INSPECT(token)</code> decodes a token without establishing trust. Use
+<code>VERIFY(token, key, options)</code> when claims must be authenticated. HMAC secrets
+and PEM-encoded RSA, ECDSA, or Ed25519 keys are converted into opaque key
+handles before signing or verification.</p>

@@ -1,0 +1,317 @@
+<h1 id="oauth-20">OAuth 2.0</h1>
+<p>The OAuth 2.0 module provides machine-to-machine token acquisition and token
+lifecycle helpers under <code>SECURITY::OAUTH2</code>.</p>
+<p>It supports:</p>
+<ul>
+<li>OAuth authorization-server metadata discovery;</li>
+<li>manually configured providers;</li>
+<li><code>client_credentials</code> grants;</li>
+<li>refresh-token grants;</li>
+<li>absolute-URI extension grants;</li>
+<li>safe token inspection; and</li>
+<li>Bearer authorization-header generation.</li>
+</ul>
+<p>The module is an OAuth client, not an authorization server. Browser
+authorization flows, authorization code, PKCE, implicit, resource-owner
+password credentials, device authorization, OpenID Connect validation, token
+persistence, revocation and introspection requests, DPoP, mutual TLS, and
+<code>private_key_jwt</code> are outside this version&#39;s scope.</p>
+<h2 id="complete-machine-to-machine-example">Complete machine-to-machine example</h2>
+<p>Use aliases when importing module namespaces:</p>
+<pre><code class="language-fql">USE SECURITY::OAUTH2 AS oauth2
+USE NET::REST AS rest
+
+LET provider = oauth2::DISCOVER(@issuer, {
+  timeout: 10000
+})
+LET client = oauth2::CLIENT(provider, {
+  clientID: @clientID,
+  clientSecret: @clientSecret
+})
+LET token = oauth2::CLIENT_CREDENTIALS(client, {
+  scope: [&#34;inventory:read&#34;]
+})
+LET api = rest::CLIENT({
+  baseUrl: @apiURL,
+  headers: oauth2::AUTH_HEADER(token)
+})
+
+RETURN QUERY &#34;/inventory&#34; IN api
+</code></pre>
+<p>All option durations are non-negative integer milliseconds. For example,
+<code>timeout: 10000</code> means ten seconds and <code>skew: 30000</code> means thirty seconds.</p>
+<h2 id="providers">Providers</h2>
+<h3 id="discovery">Discovery</h3>
+<p><code>DISCOVER(issuer, options?)</code> loads RFC 8414 OAuth authorization-server
+metadata:</p>
+<pre><code class="language-fql">LET provider = SECURITY::OAUTH2::DISCOVER(&#34;https://auth.example.com/tenant&#34;, {
+  timeout: 10000
+})
+</code></pre>
+<p>The discovery URL inserts <code>/.well-known/oauth-authorization-server</code> before any
+issuer path. The example above therefore discovers:</p>
+<pre><code class="language-text">https://auth.example.com/.well-known/oauth-authorization-server/tenant
+</code></pre>
+<p>Discovery requires an HTTP <code>200</code> JSON response, an <code>issuer</code> that exactly equals
+the requested issuer, and a valid <code>token_endpoint</code>. Metadata URLs must be
+absolute HTTP(S) URLs with no user information or fragment. HTTPS is required
+unless <code>insecureAllowHTTP: true</code> is explicitly set.</p>
+<p>When discovery metadata omits
+<code>token_endpoint_auth_methods_supported</code>, the RFC 8414 default is
+<code>client_secret_basic</code>. Other omitted discovery metadata uses the applicable
+RFC defaults.</p>
+<h3 id="manual-configuration">Manual configuration</h3>
+<p><code>PROVIDER(config)</code> creates a provider without network discovery:</p>
+<pre><code class="language-fql">LET provider = SECURITY::OAUTH2::PROVIDER({
+  issuer: &#34;https://auth.example.com&#34;,
+  authorizationEndpoint: &#34;https://auth.example.com/oauth/authorize&#34;,
+  tokenEndpoint: &#34;https://auth.example.com/oauth/token&#34;,
+  revocationEndpoint: &#34;https://auth.example.com/oauth/revoke&#34;,
+  introspectionEndpoint: &#34;https://auth.example.com/oauth/introspect&#34;,
+  jwksURI: &#34;https://auth.example.com/.well-known/jwks.json&#34;,
+  scopesSupported: [&#34;users:read&#34;],
+  grantTypesSupported: [&#34;client_credentials&#34;, &#34;refresh_token&#34;],
+  tokenEndpointAuthMethodsSupported: [&#34;client_secret_basic&#34;]
+})
+</code></pre>
+<p><code>tokenEndpoint</code> is required. Every supplied URL is validated with the same
+absolute HTTP(S), no-userinfo, no-fragment, and HTTPS-by-default rules as
+discovery. A token endpoint containing sensitive query keys such as
+<code>access_token</code>, <code>client_secret</code>, <code>refresh_token</code>, <code>id_token</code>, <code>assertion</code>,
+<code>code</code>, or <code>code_verifier</code> is rejected.</p>
+<p>Unlike discovered metadata, omitted metadata on a manual provider remains
+unknown. In particular, omitting
+<code>tokenEndpointAuthMethodsSupported</code> does not constrain the client&#39;s supported
+authentication method.</p>
+<p>For local development, HTTP URL validation can be enabled explicitly:</p>
+<pre><code class="language-fql">LET provider = SECURITY::OAUTH2::PROVIDER({
+  tokenEndpoint: &#34;http://127.0.0.1:8080/oauth/token&#34;,
+  insecureAllowHTTP: true
+})
+</code></pre>
+<p><code>insecureAllowHTTP</code> only permits URL validation. It never weakens Ferret&#39;s
+outbound network policy, so localhost and private-network requests still
+require the host to allow them.</p>
+<p>Provider values expose these safe properties:</p>
+<ul>
+<li><code>issuer</code></li>
+<li><code>authorizationEndpoint</code></li>
+<li><code>tokenEndpoint</code></li>
+<li><code>revocationEndpoint</code></li>
+<li><code>introspectionEndpoint</code></li>
+<li><code>jwksURI</code></li>
+<li><code>scopesSupported</code></li>
+<li><code>grantTypesSupported</code></li>
+<li><code>tokenEndpointAuthMethodsSupported</code></li>
+</ul>
+<h2 id="clients">Clients</h2>
+<p><code>CLIENT(provider, config)</code> creates an OAuth client:</p>
+<pre><code class="language-fql">LET client = SECURITY::OAUTH2::CLIENT(provider, {
+  clientID: @clientID,
+  clientSecret: @clientSecret,
+  authMethod: &#34;client_secret_basic&#34;
+})
+</code></pre>
+<p>Supported token-endpoint authentication methods are:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>client_secret_basic</code></td>
+<td>Sends form-encoded client credentials through HTTP Basic authentication.</td>
+</tr>
+<tr>
+<td><code>client_secret_post</code></td>
+<td>Sends <code>client_id</code> and <code>client_secret</code> in the form body.</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Sends only <code>client_id</code>; intended for public-client-compatible grants.</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>authMethod</code> is omitted, clients with a secret default to
+<code>client_secret_basic</code>; clients without a secret default to <code>none</code>.
+<code>client_secret_basic</code> and <code>client_secret_post</code> require a secret, while <code>none</code>
+rejects one. If provider metadata advertises authentication methods, the
+selected method must be present in that list.</p>
+<p>The <code>client_credentials</code> grant requires an authenticated confidential client,
+so it rejects <code>none</code>. Basic authentication percent-encodes both the client ID
+and secret as form values before Base64 encoding, as required by RFC 6749.</p>
+<p>Client values expose their provider, <code>clientID</code>, <code>authMethod</code>, and
+<code>hasClientSecret</code>. They never expose <code>clientSecret</code>.</p>
+<h2 id="client-credentials">Client credentials</h2>
+<p><code>CLIENT_CREDENTIALS(client, options?)</code> requests a token with
+<code>grant_type=client_credentials</code>:</p>
+<pre><code class="language-fql">LET token = SECURITY::OAUTH2::CLIENT_CREDENTIALS(client, {
+  scope: [&#34;users:read&#34;, &#34;projects:read&#34;],
+  audience: &#34;https://api.example.com&#34;,
+  parameters: {
+    resource: [
+      &#34;https://api.example.com&#34;,
+      &#34;https://uploads.example.com&#34;
+    ]
+  },
+  timeout: 10000
+})
+</code></pre>
+<p><code>scope</code> accepts a space-separated string or an array of strings. Parameters
+accept scalar values or scalar arrays; arrays are encoded as repeated form
+fields and <code>NONE</code> values are omitted. Nested objects are rejected.</p>
+<p>Client authentication fields are always reserved, including <code>client_id</code>,
+<code>client_secret</code>, <code>client_assertion</code>, and <code>client_assertion_type</code>. Client
+credentials also reserves <code>grant_type</code>, <code>scope</code>, and <code>audience</code>; these fields
+cannot be replaced through <code>parameters</code>.</p>
+<h2 id="refreshing-a-token">Refreshing a token</h2>
+<p><code>REFRESH(client, tokenOrOptions)</code> can refresh an existing token set:</p>
+<pre><code class="language-fql">LET refreshed = SECURITY::OAUTH2::REFRESH(client, token)
+</code></pre>
+<p>It can also accept an explicit refresh-token options object:</p>
+<pre><code class="language-fql">LET refreshed = SECURITY::OAUTH2::REFRESH(client, {
+  refreshToken: @refreshToken,
+  scope: [&#34;users:read&#34;],
+  parameters: {
+    resource: &#34;https://api.example.com&#34;
+  },
+  timeout: 10000
+})
+</code></pre>
+<p>A refresh token is required. If the server omits <code>refresh_token</code>, the returned
+token set retains the previous value; a non-empty rotated token replaces it.
+When a response omits <code>scope</code>, the effective requested or previous scope is
+preserved.</p>
+<p>Refresh requests reserve all client authentication fields plus <code>grant_type</code>,
+<code>refresh_token</code>, and <code>scope</code>.</p>
+<h2 id="extension-grants">Extension grants</h2>
+<p><code>TOKEN(client, parameters)</code> is the advanced escape hatch for token-endpoint
+extension grants:</p>
+<pre><code class="language-fql">LET token = SECURITY::OAUTH2::TOKEN(client, {
+  grant_type: &#34;urn:ietf:params:oauth:grant-type:jwt-bearer&#34;,
+  assertion: @assertion,
+  scope: &#34;users:read&#34;
+})
+</code></pre>
+<p><code>grant_type</code> is required exactly once and must be an absolute URI. Client
+authentication parameters remain reserved. An <code>assertion</code> extension parameter
+is allowed and treated as secret.</p>
+<h2 id="token-values-and-helpers">Token values and helpers</h2>
+<p>Token-set properties intentionally expose only safe inspection data:</p>
+<ul>
+<li><code>tokenType</code></li>
+<li><code>scopes</code></li>
+<li><code>expiresAt</code></li>
+<li><code>expired</code></li>
+<li><code>validFor</code></li>
+<li><code>hasRefreshToken</code></li>
+<li><code>hasIDToken</code></li>
+</ul>
+<p>Unknown expiration is represented as <code>NONE</code> by <code>expiresAt</code> and <code>validFor</code>.
+<code>expired</code> is <code>false</code> when expiration is unknown. <code>validFor</code> is the remaining
+integer milliseconds, rounded up and clamped to zero.</p>
+<p>The helper functions are:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ACCESS_TOKEN(token)</code></td>
+<td>Raw access-token string.</td>
+</tr>
+<tr>
+<td><code>REFRESH_TOKEN(token)</code></td>
+<td>Raw refresh-token string, or <code>NONE</code>.</td>
+</tr>
+<tr>
+<td><code>ID_TOKEN(token)</code></td>
+<td>Raw ID-token string, or <code>NONE</code>. No parsing or validation is performed.</td>
+</tr>
+<tr>
+<td><code>TOKEN_TYPE(token)</code></td>
+<td>Token-type string returned by the provider.</td>
+</tr>
+<tr>
+<td><code>SCOPES(token)</code></td>
+<td>Scope strings split on ASCII spaces.</td>
+</tr>
+<tr>
+<td><code>EXPIRES_AT(token)</code></td>
+<td>Ferret timestamp, or <code>NONE</code> when unknown.</td>
+</tr>
+<tr>
+<td><code>EXPIRED(token, options?)</code></td>
+<td>Whether the token is expired, optionally applying a millisecond <code>skew</code>.</td>
+</tr>
+<tr>
+<td><code>VALID_FOR(token)</code></td>
+<td>Remaining integer milliseconds, or <code>NONE</code> when unknown.</td>
+</tr>
+<tr>
+<td><code>AUTH_HEADER(token)</code></td>
+<td><code>{ Authorization: &#34;Bearer &lt;access-token&gt;&#34; }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>For example:</p>
+<pre><code class="language-fql">LET shouldRefresh = SECURITY::OAUTH2::EXPIRED(token, {
+  skew: 30000
+})
+
+RETURN {
+  tokenType: SECURITY::OAUTH2::TOKEN_TYPE(token),
+  scopes: SECURITY::OAUTH2::SCOPES(token),
+  expiresAt: SECURITY::OAUTH2::EXPIRES_AT(token),
+  shouldRefresh: shouldRefresh
+}
+</code></pre>
+<p><code>AUTH_HEADER</code> accepts only case-insensitive <code>Bearer</code> token types and always
+emits the canonical <code>Bearer</code> scheme. It validates the OAuth Bearer token
+grammar before producing the header, preventing control-character and header
+injection. Other token types remain inspectable but cannot use this helper.</p>
+<h2 id="secret-handling">Secret handling</h2>
+<p>Provider, client, and token values are immutable host values with
+secret-safe formatting and serialization. Normal string formatting, Go and
+Ferret JSON, and MessagePack never reveal client secrets or raw tokens.
+Present token fields serialize as <code>&#34;&lt;redacted&gt;&#34;</code>; empty token fields are
+omitted. Provider-specific response fields are retained internally but excluded
+from property access and default serialization because unknown fields may
+themselves contain credentials.</p>
+<p>The following functions intentionally materialize secrets:</p>
+<pre><code class="language-fql">SECURITY::OAUTH2::ACCESS_TOKEN(token)
+SECURITY::OAUTH2::REFRESH_TOKEN(token)
+SECURITY::OAUTH2::ID_TOKEN(token)
+SECURITY::OAUTH2::AUTH_HEADER(token)
+</code></pre>
+<p>Do not log or return those results unnecessarily. <code>AUTH_HEADER</code> is intended to
+be passed directly to an HTTP client configuration.</p>
+<h2 id="http-and-error-behavior">HTTP and error behavior</h2>
+<p>Discovery and token requests use the policy-aware HTTP client supplied by the
+Ferret execution context. Requests therefore retain the host&#39;s SSRF, allowed
+host, redirect, timeout, request-size, response-size, and cancellation
+controls. A shorter per-operation <code>timeout</code> may be supplied, but it cannot
+weaken those controls. Network and policy errors remain available in their
+original error chains.</p>
+<p>Token requests are POST form bodies with <code>Accept: application/json</code>.
+Credentials and access tokens are never added to URI queries. For
+<code>client_secret_post</code> and <code>none</code>, the module suppresses any ambient default
+<code>Authorization</code> header so the request cannot accidentally use two
+authentication methods.</p>
+<p>Redirect handling is governed by the host&#39;s global Ferret HTTP policy. When
+credential forwarding across redirects must be prohibited, disable redirects
+or restrict the allowed destination hosts in that policy.</p>
+<p>Only HTTP <code>200</code> JSON token responses are accepted as success. Successful
+responses require non-empty <code>access_token</code> and <code>token_type</code>. Integral,
+non-negative <code>expires_in</code> values are converted to an expiration timestamp.
+Unknown response fields are retained without losing JSON-number precision.</p>
+<p>Standard OAuth failures are returned as typed OAuth errors containing the
+operation, OAuth error code, sanitized description, error URI, and status.
+Submitted secrets and raw request or response bodies are never retained in
+errors.</p>

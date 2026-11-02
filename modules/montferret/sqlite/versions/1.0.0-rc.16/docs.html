@@ -1,0 +1,185 @@
+<h1 id="dbsqlite-module">DB::SQLITE Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/db/sqlite</code> registers SQLite lifecycle helpers under the <code>DB::SQLITE</code> namespace for Ferret hosts.</p>
+<p>The namespace exposes only lifecycle functions:</p>
+<ul>
+<li><code>DB::SQLITE::OPEN</code></li>
+<li><code>DB::SQLITE::CLOSE</code></li>
+<li><code>DB::SQLITE::BEGIN</code></li>
+<li><code>DB::SQLITE::COMMIT</code></li>
+<li><code>DB::SQLITE::ROLLBACK</code></li>
+</ul>
+<p>Database and transaction handles are opaque host values that support:</p>
+<ul>
+<li><code>Queryable</code></li>
+<li>runtime cleanup through <code>Close</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/db/sqlite
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	sqlitemodule &#34;github.com/MontFerret/contrib/modules/db/sqlite&#34;
+)
+
+func main() {
+	engine, err := ferret.New(
+		ferret.WithModules(sqlitemodule.New()),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<p>Sandboxed hosts can disable file-backed databases while keeping private and shared in-memory databases:</p>
+<pre><code class="language-go">engine, err := ferret.New(
+	ferret.WithModules(sqlitemodule.New(sqlitemodule.WithMemoryOnly())),
+)
+if err != nil {
+	panic(err)
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB::SQLITE::OPEN</code></td>
+<td><code>OPEN(options)</code></td>
+<td>SQLite DB handle</td>
+<td>Opens a private memory DB, file DB, or caller-supplied SQLite URI.</td>
+</tr>
+<tr>
+<td><code>DB::SQLITE::CLOSE</code></td>
+<td><code>CLOSE(db)</code></td>
+<td><code>Boolean</code></td>
+<td>Closes a DB handle. Repeated close is idempotent.</td>
+</tr>
+<tr>
+<td><code>DB::SQLITE::BEGIN</code></td>
+<td><code>BEGIN(db)</code></td>
+<td>SQLite transaction handle</td>
+<td>Starts an explicit transaction.</td>
+</tr>
+<tr>
+<td><code>DB::SQLITE::COMMIT</code></td>
+<td><code>COMMIT(tx)</code></td>
+<td><code>Boolean</code></td>
+<td>Commits a transaction and finishes the handle.</td>
+</tr>
+<tr>
+<td><code>DB::SQLITE::ROLLBACK</code></td>
+<td><code>ROLLBACK(tx)</code></td>
+<td><code>Boolean</code></td>
+<td>Rolls back a transaction and finishes the handle.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="opening-databases">Opening Databases</h2>
+<p>Exactly one of <code>memory</code>, <code>path</code>, or <code>uri</code> must be provided.</p>
+<pre><code class="language-fql">LET db = DB::SQLITE::OPEN({ memory: true })
+</code></pre>
+<pre><code class="language-fql">LET db = DB::SQLITE::OPEN({ path: &#34;./data.db&#34; })
+</code></pre>
+<pre><code class="language-fql">LET db = DB::SQLITE::OPEN({
+  uri: &#34;file:example?mode=memory&amp;cache=shared&#34;
+})
+</code></pre>
+<p><code>memory: true</code> uses SQLite&#39;s private <code>:memory:</code> database behavior, so separate opens are isolated. Use <code>uri</code> for shared in-memory databases; at least one connection must remain open while other connections use the shared database.</p>
+<p>When the module is registered with <code>WithMemoryOnly()</code>, <code>OPEN</code> accepts <code>memory: true</code> and <code>uri</code> values with <code>mode=memory</code>, and rejects file paths or file-backed URIs.</p>
+<p><code>create</code> defaults to <code>true</code>, and <code>readOnly</code> defaults to <code>false</code>. <code>readOnly: true</code> and <code>create: true</code> together are rejected.</p>
+<h2 id="querying">Querying</h2>
+<p>Use <code>QUERY</code> when SQL returns rows.</p>
+<pre><code class="language-fql">LET rows = QUERY `
+  SELECT id, name
+  FROM users
+` IN db USING sql
+</code></pre>
+<p>Parameterized queries use SQLite <code>?</code> placeholders:</p>
+<pre><code class="language-fql">LET rows = QUERY `
+  SELECT id, name
+  FROM users
+  WHERE id = ?
+` IN db USING sql WITH {
+  params: [1]
+}
+</code></pre>
+<p><code>QUERY ONE</code>, <code>QUERY EXISTS</code>, and <code>QUERY COUNT</code> are supported. <code>QUERY COUNT</code> counts rows produced by the caller&#39;s SQL; it does not rewrite the query.</p>
+<h2 id="executing-commands">Executing Commands</h2>
+<p>Use <code>QUERY ONE ... USING sql_exec</code> when SQL should execute as a command and return execution metadata. The <code>sql_exec</code> dialect always uses SQLite&#39;s exec path and does not scan rows, even if the SQL includes <code>RETURNING</code>.</p>
+<pre><code class="language-fql">LET result = QUERY ONE `
+  INSERT INTO users(name)
+  VALUES (?)
+` IN db USING sql_exec WITH {
+  params: [&#34;Ada&#34;]
+}
+
+RETURN result
+</code></pre>
+<p>Result shape:</p>
+<pre><code class="language-json">{
+  &#34;rowsAffected&#34;: 1,
+  &#34;lastInsertId&#34;: 1
+}
+</code></pre>
+<p>For non-insert statements, <code>lastInsertId</code> is <code>NONE</code>.</p>
+<p>The base <code>QUERY</code> form returns the same metadata object in a single-item array. <code>QUERY COUNT ... USING sql_exec</code> returns <code>1</code> after a successful execution, and <code>QUERY EXISTS ... USING sql_exec</code> returns <code>true</code>.</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-fql">USE DB::SQLITE AS sqlite
+
+LET db = sqlite::OPEN({ memory: true })
+
+LET create = QUERY ONE `
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+  )
+` IN db USING sql_exec
+
+LET insert = QUERY ONE `
+  INSERT INTO users(name)
+  VALUES (?)
+` IN db USING sql_exec WITH {
+  params: [&#34;Ada&#34;]
+}
+
+RETURN QUERY `
+  SELECT id, name
+  FROM users
+` IN db USING sql
+</code></pre>
+<h2 id="transactions">Transactions</h2>
+<pre><code class="language-fql">LET db = DB::SQLITE::OPEN({ memory: true })
+LET tx = DB::SQLITE::BEGIN(db)
+
+LET insert = QUERY ONE `
+  INSERT INTO users(name)
+  VALUES (?)
+` IN tx USING sql_exec WITH {
+  params: [&#34;Ada&#34;]
+}
+
+DB::SQLITE::COMMIT(tx)
+</code></pre>
+<p>Active transactions roll back during cleanup if they are not committed or rolled back explicitly. Using a finished transaction returns a runtime error.</p>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li>SQL is never rewritten and <code>LIMIT</code> is never appended automatically.</li>
+<li>SQL <code>NULL</code> maps to Ferret <code>NONE</code>.</li>
+<li>SQLite integer, float, string, boolean, and blob driver values map to Ferret <code>Int</code>, <code>Float</code>, <code>String</code>, <code>Boolean</code>, and <code>Binary</code>.</li>
+<li>SQLite has no dedicated boolean storage class; integer results are returned as <code>Int</code> and are not guessed as booleans.</li>
+<li>Handles are opaque host resources and serialize as debug strings such as <code>&lt;db.sqlite.connection&gt;</code>.</li>
+<li>Errors include <code>DB::SQLITE</code>, the operation, and the underlying SQLite or validation cause.</li>
+</ul>

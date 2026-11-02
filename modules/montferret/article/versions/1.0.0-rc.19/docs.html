@@ -1,0 +1,121 @@
+<h1 id="webarticle-module">WEB::ARTICLE Module</h1>
+<p><code>github.com/MontFerret/contrib/modules/web/article</code> registers article extraction helpers under the <code>WEB::ARTICLE</code> namespace for Ferret hosts.</p>
+<p>The module exposes these functions:</p>
+<ul>
+<li><code>WEB::ARTICLE::EXTRACT</code></li>
+<li><code>WEB::ARTICLE::TEXT</code></li>
+<li><code>WEB::ARTICLE::MARKDOWN</code></li>
+</ul>
+<h2 id="install">Install</h2>
+<pre><code class="language-sh">go get github.com/MontFerret/contrib/modules/web/article
+</code></pre>
+<h2 id="register-the-module">Register The Module</h2>
+<pre><code class="language-go">package main
+
+import (
+	&#34;github.com/MontFerret/ferret/v2&#34;
+
+	articlemodule &#34;github.com/MontFerret/contrib/modules/web/article&#34;
+)
+
+func main() {
+	articleMod, err := articlemodule.New()
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := ferret.New(
+		ferret.WithModules(articleMod),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = engine
+}
+</code></pre>
+<h2 id="function-reference">Function Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Signature</th>
+<th>Returns</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WEB::ARTICLE::EXTRACT</code></td>
+<td><code>WEB::ARTICLE::EXTRACT(input)</code></td>
+<td><code>Object</code></td>
+<td>Extracts a normalized article object from raw HTML, <code>HTMLPage</code>, <code>HTMLDocument</code>, or <code>HTMLElement</code>.</td>
+</tr>
+<tr>
+<td><code>WEB::ARTICLE::TEXT</code></td>
+<td><code>WEB::ARTICLE::TEXT(input)</code></td>
+<td><code>String | None</code></td>
+<td>Returns the cleaned main article text when meaningful content is found.</td>
+</tr>
+<tr>
+<td><code>WEB::ARTICLE::MARKDOWN</code></td>
+<td><code>WEB::ARTICLE::MARKDOWN(input)</code></td>
+<td><code>String | None</code></td>
+<td>Returns the cleaned article body rendered as Markdown when available.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="return-shape">Return Shape</h2>
+<p><code>WEB::ARTICLE::EXTRACT</code> always returns an object with these fields:</p>
+<pre><code class="language-json">{
+  &#34;title&#34;: &#34;Example title&#34;,
+  &#34;byline&#34;: &#34;Jane Doe&#34;,
+  &#34;excerpt&#34;: &#34;Short description or summary&#34;,
+  &#34;siteName&#34;: &#34;Example Site&#34;,
+  &#34;publishedAt&#34;: &#34;2026-03-30T10:00:00Z&#34;,
+  &#34;updatedAt&#34;: &#34;2026-03-30T12:00:00Z&#34;,
+  &#34;lang&#34;: &#34;en&#34;,
+  &#34;dir&#34;: &#34;ltr&#34;,
+  &#34;canonicalUrl&#34;: &#34;https://example.com/post&#34;,
+  &#34;leadImage&#34;: &#34;https://example.com/image.jpg&#34;,
+  &#34;text&#34;: &#34;Clean main article text&#34;,
+  &#34;html&#34;: &#34;&lt;p&gt;Sanitized article body&lt;/p&gt;&#34;,
+  &#34;markdown&#34;: &#34;Body rendered as Markdown&#34;,
+  &#34;wordCount&#34;: 1234,
+  &#34;readingTimeMinutes&#34;: 7,
+  &#34;tags&#34;: [&#34;ai&#34;, &#34;news&#34;],
+  &#34;categories&#34;: [&#34;Technology&#34;]
+}
+</code></pre>
+<p>Missing values are returned as <code>null</code>.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="extract-a-normalized-article">Extract A Normalized Article</h3>
+<pre><code class="language-fql">LET response = HTTP::GET($url)
+RETURN WEB::ARTICLE::EXTRACT(response.body)
+</code></pre>
+<h3 id="extract-from-a-js-rendered-page">Extract From A JS-Rendered Page</h3>
+<pre><code class="language-fql">LET page = HTML::DOCUMENT($url, true)
+RETURN WEB::ARTICLE::EXTRACT(page)
+</code></pre>
+<h3 id="get-clean-article-text">Get Clean Article Text</h3>
+<pre><code class="language-fql">RETURN WEB::ARTICLE::TEXT($html)
+</code></pre>
+<h3 id="render-markdown-for-indexing-or-export">Render Markdown For Indexing Or Export</h3>
+<pre><code class="language-fql">RETURN {
+  url: $url,
+  markdown: WEB::ARTICLE::MARKDOWN(HTTP::GET($url).body)
+}
+</code></pre>
+<h2 id="behavior-notes">Behavior Notes</h2>
+<ul>
+<li>Extraction is heuristic and best-effort; malformed HTML is parsed when practical.</li>
+<li><code>input</code> may be raw HTML, <code>HTMLPage</code>, <code>HTMLDocument</code>, or <code>HTMLElement</code>.</li>
+<li><code>EXTRACT</code> may still return metadata when no meaningful article body is found.</li>
+<li><code>TEXT</code> and <code>MARKDOWN</code> return <code>null</code> when the page is parseable but not article-like enough.</li>
+<li>For <code>HTMLPage</code> and <code>HTMLDocument</code> inputs, the page URL is used as the fallback base URL when the DOM does not contain <code>&lt;base href&gt;</code>.</li>
+<li>URL metadata is resolved to absolute URLs whenever a base URL is available (from <code>&lt;base href&gt;</code> or the page URL for <code>HTMLPage</code>/<code>HTMLDocument</code>); for raw HTML or <code>HTMLElement</code> inputs without a base URL, relative URL values are preserved.</li>
+<li>Timestamps are normalized to RFC3339 UTC when parseable; otherwise the original trimmed value is preserved.</li>
+<li><code>html</code> is sanitized with an allowlist policy before it is returned, so dangerous attributes and URL schemes are stripped from the article body fragment.</li>
+<li><code>markdown</code> is rendered from that sanitized body HTML.</li>
+<li><code>text</code>, <code>html</code>, and <code>markdown</code> contain the cleaned body only and do not prepend the title.</li>
+</ul>
