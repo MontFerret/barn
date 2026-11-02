@@ -2,5 +2,6 @@
   "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
   "version": "1.0.0-rc.20",
   "tag": "modules/csv/v1.0.0-rc.20",
-  "commit": "136044bb4afc780429bf5471185f76380e88cb97"
+  "commit": "136044bb4afc780429bf5471185f76380e88cb97",
+  "publishedAt": "2026-11-02T20:51:38Z"
 }
