@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "montferret/html",
+  "version": "1.0.0-rc.26",
+  "description": "HTML loading, parsing, querying, interaction, and browser automation under WEB::HTML for Ferret.",
+  "namespace": "WEB::HTML",
+  "ferret": "\u003e=2.0.0-alpha.58 \u003c3.0.0",
+  "license": "Apache-2.0",
+  "source": {
+    "repository": "https://github.com/MontFerret/contrib",
+    "path": "modules/web/html",
+    "commit": "24dc030da7c9ff55be9ea3274ef34efbf66050a0"
+  },
+  "package": {
+    "path": "github.com/MontFerret/contrib/modules/web/html"
+  },
+  "content": {
+    "api": "./api.json",
+    "documentation": "./docs.md",
+    "documentationHtml": "./docs.html"
+  }
+}
