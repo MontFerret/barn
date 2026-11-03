@@ -2,5 +2,6 @@
   "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
   "version": "1.0.0-rc.27",
   "tag": "modules/web/html/v1.0.0-rc.27",
-  "commit": "fbd30fceec603c30abafeada8a526da5ee365fbb"
+  "commit": "fbd30fceec603c30abafeada8a526da5ee365fbb",
+  "publishedAt": "2026-11-03T16:26:15Z"
 }
