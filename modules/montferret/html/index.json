@@ -6,6 +6,11 @@
   "description": "HTML loading, parsing, querying, interaction, and browser automation under WEB::HTML for Ferret.",
   "versions": [
     {
+      "version": "1.0.0-rc.29",
+      "publishedAt": "2026-11-12T21:21:50Z",
+      "href": "/modules/montferret/html/versions/1.0.0-rc.29/index.json"
+    },
+    {
       "version": "1.0.0-rc.28",
       "publishedAt": "2026-11-10T19:18:37Z",
       "href": "/modules/montferret/html/versions/1.0.0-rc.28/index.json"
