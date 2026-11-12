@@ -1,0 +1,6 @@
+{
+  "$schema": "https://schemas.ferretlang.org/registry/version/v1.json",
+  "version": "1.0.0-rc.29",
+  "tag": "modules/web/html/v1.0.0-rc.29",
+  "commit": "adbfd33364a1a7c9a66c356978f4ec9448da8ccc"
+}
